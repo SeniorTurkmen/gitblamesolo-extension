@@ -10,6 +10,14 @@ export interface BlameInfo {
   line: number;
 }
 
+export type FileChangeStatus = 'A' | 'M' | 'D' | 'R' | 'C' | 'T' | 'U' | 'X';
+
+export interface CommitFileChange {
+  status: FileChangeStatus;
+  path: string;
+  oldPath?: string;
+}
+
 export interface CommitDetails {
   sha: string;
   authorName: string;
@@ -18,4 +26,5 @@ export interface CommitDetails {
   committerTimestamp: number;
   summary: string;
   body: string;
+  files: CommitFileChange[];
 }

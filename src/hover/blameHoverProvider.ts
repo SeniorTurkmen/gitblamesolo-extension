@@ -8,6 +8,11 @@ import { getCommitDetails } from '../git/gitLog';
 import { resolveRepository } from '../git/gitRepository';
 import { formatDate } from '../util/dateFormat';
 
+function buildShowDetailsCommandUri(sha: string, repoRoot: string): string {
+  const args = encodeURIComponent(JSON.stringify([sha, repoRoot]));
+  return `command:gitBlameSolo.showCommitDetails?${args}`;
+}
+
 export interface BlameHoverProviderDeps {
   blameCache: BlameCache;
   commitCache: CommitCache;
@@ -80,6 +85,7 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     }
 
     const md = new vscode.MarkdownString();
+    md.isTrusted = { enabledCommands: ['gitBlameSolo.showCommitDetails'] };
     md.appendMarkdown(`**${commit.summary}**\n\n`);
     md.appendMarkdown(
       `${commit.authorName} <${commit.authorEmail}> • ${formatDate(commit.authorTimestamp, 'absolute')}\n\n`,
@@ -87,7 +93,11 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     if (commit.body) {
       md.appendMarkdown(`${commit.body}\n\n`);
     }
-    md.appendMarkdown(`\`${commit.sha}\``);
+    md.appendMarkdown(`\`${commit.sha}\`\n\n`);
+    const fileCount = commit.files.length;
+    const fileLabel = fileCount === 1 ? '1 file' : `${fileCount} files`;
+    const commandUri = buildShowDetailsCommandUri(commit.sha, repo.rootFsPath);
+    md.appendMarkdown(`[View changed files (${fileLabel})](${commandUri})`);
     return new vscode.Hover(md, range);
   }
 

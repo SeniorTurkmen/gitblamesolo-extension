@@ -6,6 +6,7 @@ Aktif satırın kenarında, o satırı en son değiştiren commit'i (yazar, tari
 
 - Aktif satırda satır sonu inline blame anotasyonu (GitLens'in "current line blame" özelliğine benzer).
 - Herhangi bir satırın üzerine gelindiğinde tam commit detayları.
+- Hover'daki "View changed files" linkiyle, o commit'in değiştirdiği tüm dosyaların listesini gösteren bir webview paneli açılır; listedeki bir dosyaya tıklayınca dosya editörde açılır.
 - Kaydedilmemiş değişiklikler `git blame --contents -` ile canlı buffer'a karşı hesaplanır; commit'lenmemiş satırlar ayrıca işaretlenir.
 - Komutlar: `Git Blame Solo: Toggle Inline Blame`, `Show Commit Details`, `Copy Commit Hash`.
 
@@ -25,6 +26,7 @@ npm run watch     # esbuild watch modu
 ## Test
 
 ```bash
+npm run typecheck   # tsc --noEmit ile tam tip kontrolü
 npm run test:unit   # saf fonksiyon testleri (parser, cache, date format)
 npm test            # Extension Development Host içinde uçtan uca entegrasyon testleri
 ```

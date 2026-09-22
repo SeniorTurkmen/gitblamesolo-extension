@@ -30,12 +30,15 @@ export const UNCOMMITTED_LINE_PORCELAIN = [
   '',
 ].join('\n');
 
-export const COMMIT_SHOW_OUTPUT = [
-  'abcdef1234567890abcdef1234567890abcdef12',
-  'Ada Lovelace',
-  'ada@example.com',
-  '1700000000',
-  '1700000100',
-  'Add initial calculation engine',
-  'This introduces the first version of the calculation engine.\nIt supports add and subtract.',
-].join('\x1f');
+export const COMMIT_SHOW_OUTPUT =
+  [
+    'abcdef1234567890abcdef1234567890abcdef12',
+    'Ada Lovelace',
+    'ada@example.com',
+    '1700000000',
+    '1700000100',
+    'Add initial calculation engine',
+    'This introduces the first version of the calculation engine.\nIt supports add and subtract.',
+  ].join('\x1f') +
+  '\x1e\n\n' +
+  ['M\tsrc/engine.ts', 'A\tsrc/engine.test.ts', 'R100\told/path.ts\tnew/path.ts', ''].join('\n');
