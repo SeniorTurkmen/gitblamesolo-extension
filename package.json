@@ -1,0 +1,117 @@
+{
+  "name": "gitblamesolo",
+  "displayName": "Git Blame Solo",
+  "description": "Shows who changed the current line, when, and with which commit — inline and on hover.",
+  "version": "0.0.1",
+  "publisher": "gitblamesolo",
+  "private": true,
+  "type": "commonjs",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "SCM Providers",
+    "Other"
+  ],
+  "activationEvents": [
+    "workspaceContains:.git",
+    "workspaceContains:**/.git"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Git Blame Solo",
+      "properties": {
+        "gitBlameSolo.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show inline blame annotation for the current line."
+        },
+        "gitBlameSolo.dateStyle": {
+          "type": "string",
+          "enum": ["relative", "absolute"],
+          "default": "relative",
+          "description": "How dates are formatted in the inline annotation and hover."
+        },
+        "gitBlameSolo.decorationTemplate": {
+          "type": "string",
+          "default": "${author}, ${date} • ${message}",
+          "description": "Template for the inline annotation. Placeholders: ${author} ${date} ${message} ${hash}"
+        },
+        "gitBlameSolo.decorationColor": {
+          "type": "string",
+          "default": "",
+          "description": "Theme color id or hex color for the inline annotation. Empty uses editorCodeLens.foreground."
+        },
+        "gitBlameSolo.debounceMs": {
+          "type": "number",
+          "default": 150,
+          "description": "Milliseconds to wait after cursor movement before recomputing blame."
+        },
+        "gitBlameSolo.hover.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show full commit details on hover."
+        },
+        "gitBlameSolo.maxFileSizeKB": {
+          "type": "number",
+          "default": 5000,
+          "description": "Files larger than this are skipped for performance."
+        },
+        "gitBlameSolo.uncommittedLabel": {
+          "type": "string",
+          "default": "Uncommitted changes",
+          "description": "Label shown for lines that have not been committed yet."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "gitBlameSolo.toggle",
+        "title": "Git Blame Solo: Toggle Inline Blame"
+      },
+      {
+        "command": "gitBlameSolo.showCommitDetails",
+        "title": "Git Blame Solo: Show Commit Details"
+      },
+      {
+        "command": "gitBlameSolo.copyCommitHash",
+        "title": "Git Blame Solo: Copy Commit Hash"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "gitBlameSolo.showCommitDetails",
+          "group": "9_gitBlameSolo"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "node esbuild.js --production",
+    "vscode:prepublish": "npm run package",
+    "compile-tests": "tsc -p tsconfig.json",
+    "lint": "eslint src test --ext ts",
+    "test:unit": "mocha --require ts-node/register 'test/unit/**/*.test.ts'",
+    "pretest": "npm run compile && npm run compile-tests && npm run lint",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.7",
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.90.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.23.0",
+    "eslint": "^8.57.0",
+    "mocha": "^10.4.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.0"
+  }
+}
