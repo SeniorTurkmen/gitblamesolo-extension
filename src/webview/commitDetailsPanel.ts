@@ -101,8 +101,6 @@ export class CommitDetailsPanel {
       ? commit.files.map((f) => this.renderFileSection(f, diffsByPath.get(f.path))).join('\n')
       : '<p class="empty">No file changes recorded.</p>';
 
-    const sourceBarHtml = this.renderSourceBar();
-
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -215,33 +213,26 @@ export class CommitDetailsPanel {
       font-style: italic;
       padding: 0.3rem 0.5rem;
     }
-    .source-bar {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.4rem;
-      margin-bottom: 0.75rem;
-      padding: 0.3rem 0.6rem;
-      border-radius: 4px;
-      background: var(--vscode-textBlockQuote-background, var(--vscode-editorWidget-background));
-      border-left: 3px solid var(--vscode-textLink-foreground);
-      font-size: 0.82rem;
-      color: var(--vscode-descriptionForeground);
+    .diff-line-source {
+      position: relative;
       cursor: pointer;
+      outline: 1px solid var(--vscode-textLink-foreground);
+      outline-offset: -1px;
     }
-    .source-bar:hover {
+    .diff-line-source:hover {
       background: var(--vscode-list-hoverBackground);
     }
-    .source-bar .source-label {
-      opacity: 0.85;
-    }
-    .source-bar .source-path {
+    .diff-line-source::after {
+      content: '\\2190 opened from here';
+      position: absolute;
+      right: 0.5rem;
       color: var(--vscode-textLink-foreground);
-      font-family: var(--vscode-editor-font-family, monospace);
+      font-style: italic;
+      opacity: 0.85;
     }
   </style>
 </head>
 <body>
-  ${sourceBarHtml}
   <h2>${escapeHtml(commit.summary)}</h2>
   <div class="meta">
     ${escapeHtml(commit.authorName)} &lt;${escapeHtml(commit.authorEmail)}&gt; &bull;
@@ -258,27 +249,19 @@ export class CommitDetailsPanel {
         vscode.postMessage({ type: 'openFile', path: el.getAttribute('data-path') });
       });
     });
-    const sourceBar = document.querySelector('[data-action="openSource"]');
-    if (sourceBar) {
-      sourceBar.addEventListener('click', () => {
+    document.querySelectorAll('.diff-line-source').forEach((el) => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
         vscode.postMessage({ type: 'openSource' });
       });
+    });
+    const sourceLine = document.querySelector('.diff-line-source');
+    if (sourceLine) {
+      sourceLine.scrollIntoView({ block: 'center' });
     }
   </script>
 </body>
 </html>`;
-  }
-
-  private renderSourceBar(): string {
-    if (!this.source) {
-      return '';
-    }
-    const relativePath = path.relative(this.repoRoot, this.source.filePath).split(path.sep).join('/');
-    const displayPath = relativePath || path.basename(this.source.filePath);
-    return `<div class="source-bar" data-action="openSource" title="Jump back to where this was opened from">
-      <span class="source-label">Opened from</span>
-      <span class="source-path">${escapeHtml(displayPath)}:${this.source.line + 1}</span>
-    </div>`;
   }
 
   private renderFileSection(file: CommitFileChange, diff: FileDiff | undefined): string {
@@ -293,11 +276,19 @@ export class CommitDetailsPanel {
       <span class="path">${oldPathHtml}${escapeHtml(file.path)}</span>
     </div>`;
 
-    const body = this.renderDiffBody(diff);
+    const body = this.renderDiffBody(diff, this.sourceCommitLineFor(file.path));
     return `<div class="file-section">${header}${body}</div>`;
   }
 
-  private renderDiffBody(diff: FileDiff | undefined): string {
+  private sourceCommitLineFor(filePath: string): number | undefined {
+    if (!this.source) {
+      return undefined;
+    }
+    const relativeSourcePath = path.relative(this.repoRoot, this.source.filePath).split(path.sep).join('/');
+    return relativeSourcePath === filePath ? this.source.commitLine : undefined;
+  }
+
+  private renderDiffBody(diff: FileDiff | undefined, matchCommitLine: number | undefined): string {
     if (!diff) {
       return '<div class="diff-meta">No diff available for this file.</div>';
     }
@@ -305,14 +296,14 @@ export class CommitDetailsPanel {
       return '<div class="diff-meta">No content changes.</div>';
     }
 
-    const lines = diff.lines.map((line) => this.renderDiffLine(line)).join('\n');
+    const lines = diff.lines.map((line) => this.renderDiffLine(line, matchCommitLine)).join('\n');
     const truncatedNotice = diff.truncated
       ? '<div class="diff-meta">&hellip; diff truncated, open the file to see the rest.</div>'
       : '';
     return `<div class="diff-body">${lines}${truncatedNotice}</div>`;
   }
 
-  private renderDiffLine(line: DiffLine): string {
+  private renderDiffLine(line: DiffLine, matchCommitLine: number | undefined): string {
     if (line.kind === 'hunk-header') {
       return `<div class="diff-line diff-hunk">${escapeHtml(line.text)}</div>`;
     }
@@ -320,7 +311,10 @@ export class CommitDetailsPanel {
       return `<div class="diff-line diff-meta">${escapeHtml(line.text)}</div>`;
     }
     const marker = line.kind === 'add' ? '+' : line.kind === 'del' ? '-' : ' ';
-    return `<div class="diff-line diff-${line.kind}"><span class="diff-marker">${marker}</span>${escapeHtml(line.text)}</div>`;
+    const isSourceLine = matchCommitLine !== undefined && line.newLine === matchCommitLine;
+    const sourceClass = isSourceLine ? ' diff-line-source' : '';
+    const title = isSourceLine ? ' title="Click to jump back to where this was opened from"' : '';
+    return `<div class="diff-line diff-${line.kind}${sourceClass}"${title}><span class="diff-marker">${marker}</span>${escapeHtml(line.text)}</div>`;
   }
 
   private dispose(): void {

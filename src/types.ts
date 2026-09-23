@@ -25,6 +25,8 @@ export type DiffLineKind = 'add' | 'del' | 'context' | 'hunk-header' | 'meta';
 export interface DiffLine {
   kind: DiffLineKind;
   text: string;
+  /** 1-based line number in the post-commit version of the file; only set for 'add'/'context' lines. */
+  newLine?: number;
 }
 
 export interface FileDiff {
@@ -45,9 +47,11 @@ export interface CommitDetails {
   files: CommitFileChange[];
 }
 
-/** Where the "Show Commit Details" panel was opened from, so it can show and jump back to it. */
+/** Where the "Show Commit Details" panel was opened from, so it can mark and jump back to it. */
 export interface SourceLocation {
   filePath: string;
-  /** 0-based. */
+  /** 0-based line in the CURRENT buffer; used as the jump-back target. */
   line: number;
+  /** 1-based line number in the commit's own version of the file; used to find the matching diff row. */
+  commitLine: number;
 }
