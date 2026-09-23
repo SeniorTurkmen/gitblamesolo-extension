@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Hover'ın "What changed" bölümü yeniden tasarlandı: VS Code'un native codicon'ları ile ($(git-commit), $(account), $(clock), $(diff) vb.) ikonlaştırılmış başlıklar, `+N`/`-N` şeklinde renkli bir diff istatistik özeti ($(diff-added)/$(diff-removed)), ve bölümleri ayıran ince çizgiler eklendi. Artık tema renkleriyle otomatik uyumlu, daha "native" ve okunması kolay bir görünüm var.
+- Diff satırları artık düz bir ```diff``` kod bloğu yerine, her satırın başında renkli $(diff-added)/$(diff-removed) ikonlarıyla, tek bir blockquote çerçevesi içinde satır satır gösteriliyor — bu sayede renk her zaman garantili (temanın diff sözdizimi renklerine bağımlı değil) ve hunk alanı görsel olarak net bir kutu içinde ayrışıyor.
 
 - Hover'a "View changed files" linki eklendi; tıklandığında commit'in değiştirdiği tüm dosyaların listesini gösteren bir webview paneli açılıyor (dosya başlığına tıklayınca dosya editörde açılır).
 - Webview paneli artık her dosyanın **gerçek diff içeriğini** de gösteriyor: eklenen satırlar yeşil, silinen satırlar kırmızı vurgulu, hunk başlıkları ayrı bir bantla ayrılmış. Çok uzun dosya diff'leri 400 satırda kırpılıp not düşülüyor.

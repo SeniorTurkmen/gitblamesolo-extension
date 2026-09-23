@@ -9,7 +9,7 @@ import { getLineDiffHunk } from '../git/gitDiff';
 import { getCommitDetails } from '../git/gitLog';
 import { resolveRepository } from '../git/gitRepository';
 import { formatDate } from '../util/dateFormat';
-import { countDiffStats } from '../util/diffStats';
+import { countDiffStats, DiffRenderLine, parseDiffHunkLines } from '../util/diffRender';
 
 function buildShowDetailsCommandUri(
   sha: string,
@@ -147,7 +147,12 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     if (!diffHunk) {
       return;
     }
-    const { added, removed } = countDiffStats(diffHunk);
+    const lines = parseDiffHunkLines(diffHunk);
+    if (lines.length === 0) {
+      return;
+    }
+
+    const { added, removed } = countDiffStats(lines);
     const stats = [
       added > 0 ? `$(diff-added) ${added}` : undefined,
       removed > 0 ? `$(diff-removed) ${removed}` : undefined,
@@ -156,8 +161,26 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       .join(' &nbsp; ');
 
     md.appendMarkdown('\n\n---\n\n');
-    md.appendMarkdown(`$(diff) **What changed**${stats ? ` &nbsp; ${stats}` : ''}\n`);
-    md.appendCodeblock(diffHunk, 'diff');
+    md.appendMarkdown(`$(diff) **What changed**${stats ? ` &nbsp; ${stats}` : ''}\n\n`);
+
+    // Rendered as icon-prefixed inline code inside one continuous blockquote —
+    // this guarantees add/remove coloring via codicons (which always pick up the
+    // theme's git decoration colors) instead of depending on whether the current
+    // theme defines strong diff-syntax colors for a plain ```diff code block.
+    const body = lines.map((line) => this.renderHoverDiffLine(line)).join('\n> ');
+    md.appendMarkdown(`> ${body}`);
+  }
+
+  private renderHoverDiffLine(line: DiffRenderLine): string {
+    const text = line.text.length > 0 ? escapeInlineCode(line.text) : ' ';
+    const code = `\`${text}\``;
+    if (line.kind === 'add') {
+      return `$(diff-added) ${code}`;
+    }
+    if (line.kind === 'del') {
+      return `$(diff-removed) ${code}`;
+    }
+    return `&nbsp;&nbsp;${code}`;
   }
 
   private async getMtimeSeconds(fsPath: string): Promise<number> {
@@ -168,4 +191,13 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       return Math.floor(Date.now() / 1000);
     }
   }
+}
+
+/**
+ * Inline code spans break if the content contains a backtick; since we render
+ * arbitrary source lines this way, swap literal backticks for a look-alike
+ * character rather than trying to pick a longer, content-free delimiter run.
+ */
+function escapeInlineCode(text: string): string {
+  return text.replace(/`/g, 'ˋ');
 }
