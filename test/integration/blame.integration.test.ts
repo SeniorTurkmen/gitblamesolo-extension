@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { blameLine } from '../../src/git/gitBlame';
+import { getLineDiffHunk } from '../../src/git/gitDiff';
 import { getCommitDetails } from '../../src/git/gitLog';
 
 function git(repoRoot: string, args: string[]): void {
@@ -68,5 +69,17 @@ describe('git blame integration', () => {
     assert.ok(details);
     assert.strictEqual(details!.summary, 'Second commit');
     assert.strictEqual(details!.authorEmail, 'test@example.com');
+    assert.deepStrictEqual(details!.files, [{ status: 'M', path: 'file.txt' }]);
+  });
+
+  it('shows the before/after diff hunk for the line that changed', async () => {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const blame = await blameLine({ filePath, content, line: 1, repoRoot });
+    assert.ok(blame);
+
+    const hunk = await getLineDiffHunk({ sha: blame!.sha, filePath, line: blame!.originalLine, repoRoot });
+    assert.ok(hunk);
+    assert.ok(hunk!.includes('-line two'));
+    assert.ok(hunk!.includes('+line two changed'));
   });
 });

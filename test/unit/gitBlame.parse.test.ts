@@ -14,6 +14,7 @@ describe('parsePorcelainBlame', () => {
     assert.strictEqual(info.authorTimestamp, 1700000000);
     assert.strictEqual(info.summary, 'Add initial calculation engine');
     assert.strictEqual(info.line, 2);
+    assert.strictEqual(info.originalLine, 2);
   });
 
   it('parses an uncommitted line as ZERO_SHA', () => {

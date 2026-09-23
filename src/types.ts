@@ -8,6 +8,8 @@ export interface BlameInfo {
   authorTimestamp: number;
   summary: string;
   line: number;
+  /** 0-based line number within the blamed commit's own version of the file. */
+  originalLine: number;
 }
 
 export type FileChangeStatus = 'A' | 'M' | 'D' | 'R' | 'C' | 'T' | 'U' | 'X';

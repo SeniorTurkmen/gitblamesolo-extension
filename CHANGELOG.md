@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Hover'a "View changed files" linki eklendi; tıklandığında commit'in değiştirdiği tüm dosyaların listesini gösteren bir webview paneli açılıyor (dosyaya tıklayınca açılır).
+- Hover'da artık "What changed" başlığı altında, o satırı son değiştiren commit'in tam diff hunk'ı (`git log -L`) gösteriliyor — satırın öncesi/sonrası tek bakışta görülebiliyor.
 
 ## 0.0.1
 

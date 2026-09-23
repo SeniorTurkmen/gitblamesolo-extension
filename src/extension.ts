@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { BlameCache } from './cache/blameCache';
 import { CommitCache } from './cache/commitCache';
+import { LineDiffCache } from './cache/lineDiffCache';
 import { getConfig, onConfigChanged } from './config';
 import { CurrentLineBlameDecorator } from './decorations/currentLineDecorator';
 import { GitCliError, runGit } from './git/gitCli';
@@ -27,6 +28,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const blameCache = new BlameCache();
   const commitCache = new CommitCache();
+  const lineDiffCache = new LineDiffCache();
   const decorator = new CurrentLineBlameDecorator({ blameCache, getConfig });
 
   context.subscriptions.push(decorator);
@@ -42,7 +44,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.languages.registerHoverProvider(
       { scheme: 'file' },
-      new BlameHoverProvider({ blameCache, commitCache, getConfig }),
+      new BlameHoverProvider({ blameCache, commitCache, lineDiffCache, getConfig }),
     ),
   );
   context.subscriptions.push(onConfigChanged(() => decorator.refreshNow()));

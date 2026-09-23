@@ -18,6 +18,7 @@ export function parsePorcelainBlame(porcelain: string, zeroBasedLine: number): B
 
   const header = lines[0].split(' ');
   const sha = header[0];
+  const originalLine = (parseInt(header[1], 10) || 1) - 1;
 
   let authorName = '';
   let authorEmail = '';
@@ -59,6 +60,7 @@ export function parsePorcelainBlame(porcelain: string, zeroBasedLine: number): B
     authorTimestamp,
     summary,
     line: zeroBasedLine,
+    originalLine,
   };
 }
 

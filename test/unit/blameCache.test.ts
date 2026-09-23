@@ -15,6 +15,7 @@ function fakeBlame(line: number): BlameInfo {
     authorTimestamp: 0,
     summary: 'test',
     line,
+    originalLine: line,
   };
 }
 
