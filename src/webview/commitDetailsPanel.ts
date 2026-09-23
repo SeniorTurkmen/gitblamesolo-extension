@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { applyPatchReverse } from '../git/gitApply';
+import { GitCliError } from '../git/gitCli';
 import { buildHunkPatch, isRevertibleHunk } from '../git/gitCommitDiff';
 import { CommitDetails, CommitFileChange, DiffHunk, DiffLine, FileChangeStatus, FileDiff, SourceLocation } from '../types';
 import { formatDate } from '../util/dateFormat';
@@ -147,9 +148,11 @@ export class CommitDetailsPanel {
     const patch = buildHunkPatch(relativePath, hunk);
     try {
       await applyPatchReverse(patch, this.repoRoot);
-    } catch {
+    } catch (err) {
+      const detail = err instanceof GitCliError ? err.stderr.trim() || err.message : String(err);
+      console.error('Git Blame Solo: git apply --reverse failed:', detail);
       void vscode.window.showWarningMessage(
-        `Git Blame Solo: could not revert this hunk in "${relativePath}" — the file may have changed since this commit.`,
+        `Git Blame Solo: could not revert this hunk in "${relativePath}" (it may have changed since this commit). ${detail}`,
       );
       return;
     }
