@@ -10,6 +10,7 @@
     "type": "git",
     "url": "https://github.com/SeniorTurkmen/gitblamesolo-extension.git"
   },
+  "icon": "resources/icon.png",
   "type": "commonjs",
   "engines": {
     "vscode": "^1.90.0"
@@ -17,6 +18,13 @@
   "categories": [
     "SCM Providers",
     "Other"
+  ],
+  "keywords": [
+    "git",
+    "blame",
+    "history",
+    "diff",
+    "commit"
   ],
   "activationEvents": [
     "workspaceContains:.git",
