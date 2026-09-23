@@ -9,6 +9,7 @@ import { getLineDiffHunk } from '../git/gitDiff';
 import { getCommitDetails } from '../git/gitLog';
 import { resolveRepository } from '../git/gitRepository';
 import { formatDate } from '../util/dateFormat';
+import { countDiffStats } from '../util/diffStats';
 
 function buildShowDetailsCommandUri(
   sha: string,
@@ -19,6 +20,12 @@ function buildShowDetailsCommandUri(
 ): string {
   const args = encodeURIComponent(JSON.stringify([sha, repoRoot, sourceFilePath, sourceLine, sourceCommitLine]));
   return `command:gitBlameSolo.showCommitDetails?${args}`;
+}
+
+function newMarkdown(): vscode.MarkdownString {
+  const md = new vscode.MarkdownString();
+  md.supportThemeIcons = true;
+  return md;
 }
 
 export interface BlameHoverProviderDeps {
@@ -71,9 +78,9 @@ export class BlameHoverProvider implements vscode.HoverProvider {
 
     if (blame.isUncommitted) {
       const mtimeSeconds = await this.getMtimeSeconds(document.uri.fsPath);
-      const md = new vscode.MarkdownString();
-      md.appendMarkdown(`**${config.uncommittedLabel}**\n\n`);
-      md.appendMarkdown(`Last modified: ${formatDate(mtimeSeconds, 'absolute')}`);
+      const md = newMarkdown();
+      md.appendMarkdown(`$(circle-large-filled) **${config.uncommittedLabel}**\n\n`);
+      md.appendMarkdown(`$(clock) Last modified ${formatDate(mtimeSeconds, 'absolute')}`);
       return new vscode.Hover(md, range);
     }
 
@@ -100,26 +107,29 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     }
 
     if (!commit) {
-      const md = new vscode.MarkdownString();
-      md.appendMarkdown(`**${blame.summary}**\n\n`);
-      md.appendMarkdown(`${blame.authorName} • ${formatDate(blame.authorTimestamp, 'absolute')}\n\n`);
-      md.appendMarkdown(`\`${blame.sha}\``);
+      const md = newMarkdown();
+      md.appendMarkdown(`$(git-commit) **${blame.summary}**\n\n`);
+      md.appendMarkdown(
+        `$(account) ${blame.authorName} &nbsp;&nbsp; $(clock) ${formatDate(blame.authorTimestamp, 'absolute')}\n\n`,
+      );
+      md.appendMarkdown(`\`${blame.sha.slice(0, 7)}\``);
       this.appendDiff(md, diffHunk);
       return new vscode.Hover(md, range);
     }
 
-    const md = new vscode.MarkdownString();
+    const md = newMarkdown();
     md.isTrusted = { enabledCommands: ['gitBlameSolo.showCommitDetails'] };
-    md.appendMarkdown(`**${commit.summary}**\n\n`);
+    md.appendMarkdown(`$(git-commit) **${commit.summary}**\n\n`);
     md.appendMarkdown(
-      `${commit.authorName} <${commit.authorEmail}> • ${formatDate(commit.authorTimestamp, 'absolute')}\n\n`,
+      `$(account) ${commit.authorName} &nbsp;&nbsp; $(clock) ${formatDate(commit.authorTimestamp, 'absolute')}\n\n`,
     );
     if (commit.body) {
       md.appendMarkdown(`${commit.body}\n\n`);
     }
-    md.appendMarkdown(`\`${commit.sha}\``);
+    md.appendMarkdown(`\`${commit.sha.slice(0, 7)}\``);
     this.appendDiff(md, diffHunk);
 
+    md.appendMarkdown('\n\n---\n\n');
     const fileCount = commit.files.length;
     const fileLabel = fileCount === 1 ? '1 file' : `${fileCount} files`;
     const commandUri = buildShowDetailsCommandUri(
@@ -129,7 +139,7 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       line,
       blame.originalLine + 1,
     );
-    md.appendMarkdown(`\n\n[View changed files (${fileLabel})](${commandUri})`);
+    md.appendMarkdown(`$(files) [View changed files (${fileLabel})](${commandUri})`);
     return new vscode.Hover(md, range);
   }
 
@@ -137,7 +147,16 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     if (!diffHunk) {
       return;
     }
-    md.appendMarkdown('\n\n**What changed:**\n');
+    const { added, removed } = countDiffStats(diffHunk);
+    const stats = [
+      added > 0 ? `$(diff-added) ${added}` : undefined,
+      removed > 0 ? `$(diff-removed) ${removed}` : undefined,
+    ]
+      .filter(Boolean)
+      .join(' &nbsp; ');
+
+    md.appendMarkdown('\n\n---\n\n');
+    md.appendMarkdown(`$(diff) **What changed**${stats ? ` &nbsp; ${stats}` : ''}\n`);
     md.appendCodeblock(diffHunk, 'diff');
   }
 
