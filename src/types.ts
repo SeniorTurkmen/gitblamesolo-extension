@@ -20,7 +20,7 @@ export interface CommitFileChange {
   oldPath?: string;
 }
 
-export type DiffLineKind = 'add' | 'del' | 'context' | 'hunk-header' | 'meta';
+export type DiffLineKind = 'add' | 'del' | 'context' | 'meta';
 
 export interface DiffLine {
   kind: DiffLineKind;
@@ -29,10 +29,20 @@ export interface DiffLine {
   newLine?: number;
 }
 
+export interface DiffHunk {
+  /** The raw "@@ -oldStart,oldCount +newStart,newCount @@" header line. */
+  header: string;
+  oldStart: number;
+  oldCount: number;
+  newStart: number;
+  newCount: number;
+  lines: DiffLine[];
+}
+
 export interface FileDiff {
   path: string;
   oldPath?: string;
-  lines: DiffLine[];
+  hunks: DiffHunk[];
   truncated: boolean;
 }
 

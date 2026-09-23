@@ -1,9 +1,14 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { CommitDetails, CommitFileChange, DiffLine, FileChangeStatus, FileDiff, SourceLocation } from '../types';
+import { applyPatchReverse } from '../git/gitApply';
+import { buildHunkPatch, isRevertibleHunk } from '../git/gitCommitDiff';
+import { CommitDetails, CommitFileChange, DiffHunk, DiffLine, FileChangeStatus, FileDiff, SourceLocation } from '../types';
 import { formatDate } from '../util/dateFormat';
 
-type WebviewMessage = { type: 'openFile'; path: string } | { type: 'openSource' };
+type WebviewMessage =
+  | { type: 'openFile'; path: string }
+  | { type: 'openSource' }
+  | { type: 'revertHunk'; path: string; hunkIndex: number };
 
 const STATUS_LABELS: Record<FileChangeStatus, string> = {
   A: 'Added',
@@ -23,6 +28,7 @@ export class CommitDetailsPanel {
   private readonly disposables: vscode.Disposable[] = [];
   private repoRoot: string;
   private source: SourceLocation | undefined;
+  private diffs: FileDiff[] = [];
 
   static show(commit: CommitDetails, diffs: FileDiff[], repoRoot: string, source?: SourceLocation): void {
     if (CommitDetailsPanel.current) {
@@ -63,32 +69,95 @@ export class CommitDetailsPanel {
   private update(commit: CommitDetails, diffs: FileDiff[], repoRoot: string, source: SourceLocation | undefined): void {
     this.repoRoot = repoRoot;
     this.source = source;
+    this.diffs = diffs;
     this.panel.title = `Commit ${commit.sha.slice(0, 7)}`;
     this.panel.webview.html = this.renderHtml(commit, diffs);
   }
 
   private async handleMessage(message: WebviewMessage): Promise<void> {
     if (message.type === 'openFile') {
-      const absolutePath = path.join(this.repoRoot, message.path);
-      try {
-        const document = await vscode.workspace.openTextDocument(absolutePath);
-        await vscode.window.showTextDocument(document, { preview: true });
-      } catch {
-        void vscode.window.showWarningMessage(`Git Blame Solo: could not open "${message.path}".`);
-      }
+      await this.openFile(message.path);
+      return;
+    }
+    if (message.type === 'openSource') {
+      await this.openSource();
+      return;
+    }
+    if (message.type === 'revertHunk') {
+      await this.revertHunk(message.path, message.hunkIndex);
+    }
+  }
+
+  private async openFile(relativePath: string): Promise<void> {
+    const absolutePath = path.join(this.repoRoot, relativePath);
+    try {
+      const document = await vscode.workspace.openTextDocument(absolutePath);
+      await vscode.window.showTextDocument(document, { preview: true });
+    } catch {
+      void vscode.window.showWarningMessage(`Git Blame Solo: could not open "${relativePath}".`);
+    }
+  }
+
+  private async openSource(): Promise<void> {
+    if (!this.source) {
+      return;
+    }
+    try {
+      const document = await vscode.workspace.openTextDocument(this.source.filePath);
+      const editor = await vscode.window.showTextDocument(document, { preview: true });
+      const position = new vscode.Position(this.source.line, 0);
+      editor.selection = new vscode.Selection(position, position);
+      editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+    } catch {
+      void vscode.window.showWarningMessage('Git Blame Solo: could not open the source location.');
+    }
+  }
+
+  private async revertHunk(relativePath: string, hunkIndex: number): Promise<void> {
+    const fileDiff = this.diffs.find((d) => d.path === relativePath);
+    const hunk = fileDiff?.hunks[hunkIndex];
+    if (!fileDiff || !hunk || !isRevertibleHunk(hunk)) {
+      void vscode.window.showWarningMessage('Git Blame Solo: this hunk cannot be reverted.');
       return;
     }
 
-    if (message.type === 'openSource' && this.source) {
-      try {
-        const document = await vscode.workspace.openTextDocument(this.source.filePath);
-        const editor = await vscode.window.showTextDocument(document, { preview: true });
-        const position = new vscode.Position(this.source.line, 0);
-        editor.selection = new vscode.Selection(position, position);
-        editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
-      } catch {
-        void vscode.window.showWarningMessage('Git Blame Solo: could not open the source location.');
-      }
+    const absolutePath = path.join(this.repoRoot, relativePath);
+    const openDocument = vscode.workspace.textDocuments.find((d) => d.uri.fsPath === absolutePath);
+    if (openDocument?.isDirty) {
+      void vscode.window.showWarningMessage(
+        `Git Blame Solo: save or discard your changes to "${relativePath}" before reverting a hunk in it.`,
+      );
+      return;
+    }
+
+    const lineRange =
+      hunk.newCount > 1 ? `lines ${hunk.newStart}-${hunk.newStart + hunk.newCount - 1}` : `line ${hunk.newStart}`;
+    const choice = await vscode.window.showWarningMessage(
+      `Revert this hunk in "${relativePath}"?`,
+      {
+        modal: true,
+        detail: `This undoes the change shown for ${lineRange} in the current working copy of the file. This cannot be undone from here — you would need to re-apply the change manually.`,
+      },
+      'Revert Hunk',
+    );
+    if (choice !== 'Revert Hunk') {
+      return;
+    }
+
+    const patch = buildHunkPatch(relativePath, hunk);
+    try {
+      await applyPatchReverse(patch, this.repoRoot);
+    } catch {
+      void vscode.window.showWarningMessage(
+        `Git Blame Solo: could not revert this hunk in "${relativePath}" — the file may have changed since this commit.`,
+      );
+      return;
+    }
+
+    void this.panel.webview.postMessage({ type: 'hunkReverted', path: relativePath, hunkIndex });
+    const openAction = await vscode.window.showInformationMessage(`Reverted hunk in "${relativePath}".`, 'Open File');
+    if (openAction === 'Open File') {
+      await this.openFile(relativePath);
     }
   }
 
@@ -171,6 +240,7 @@ export class CommitDetailsPanel {
     .status-R { color: var(--vscode-gitDecoration-renamedResourceForeground, #73c991); }
     .path {
       overflow-wrap: anywhere;
+      flex: 1;
     }
     .old-path {
       color: var(--vscode-descriptionForeground);
@@ -202,12 +272,6 @@ export class CommitDetailsPanel {
     .diff-context {
       opacity: 0.75;
     }
-    .diff-hunk {
-      color: var(--vscode-descriptionForeground);
-      background: var(--vscode-editorWidget-background);
-      margin-top: 0.35rem;
-      padding: 0.2rem 0.5rem;
-    }
     .diff-meta {
       color: var(--vscode-descriptionForeground);
       font-style: italic;
@@ -229,6 +293,41 @@ export class CommitDetailsPanel {
       color: var(--vscode-textLink-foreground);
       font-style: italic;
       opacity: 0.85;
+    }
+    .hunk-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      color: var(--vscode-descriptionForeground);
+      background: var(--vscode-editorWidget-background);
+      margin-top: 0.35rem;
+      padding: 0.15rem 0.5rem;
+      font-family: var(--vscode-editor-font-family, monospace);
+      font-size: 0.82rem;
+    }
+    .revert-btn {
+      flex-shrink: 0;
+      font-family: var(--vscode-font-family);
+      font-size: 0.75rem;
+      padding: 0.1rem 0.5rem;
+      border-radius: 3px;
+      border: 1px solid var(--vscode-button-border, transparent);
+      background: var(--vscode-button-secondaryBackground, transparent);
+      color: var(--vscode-button-secondaryForeground, var(--vscode-textLink-foreground));
+      cursor: pointer;
+    }
+    .revert-btn:hover {
+      background: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground));
+    }
+    .revert-btn:disabled {
+      cursor: default;
+      opacity: 0.6;
+    }
+    .revert-btn.reverted {
+      color: var(--vscode-gitDecoration-deletedResourceForeground, #f44336);
+      border-color: transparent;
+      background: transparent;
     }
   </style>
 </head>
@@ -255,6 +354,29 @@ export class CommitDetailsPanel {
         vscode.postMessage({ type: 'openSource' });
       });
     });
+    document.querySelectorAll('.revert-btn').forEach((el) => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        vscode.postMessage({
+          type: 'revertHunk',
+          path: el.getAttribute('data-file'),
+          hunkIndex: Number(el.getAttribute('data-hunk')),
+        });
+      });
+    });
+    window.addEventListener('message', (event) => {
+      const message = event.data;
+      if (message && message.type === 'hunkReverted') {
+        const btn = document.querySelector(
+          '.revert-btn[data-file="' + CSS.escape(message.path) + '"][data-hunk="' + message.hunkIndex + '"]',
+        );
+        if (btn) {
+          btn.textContent = 'Reverted';
+          btn.classList.add('reverted');
+          btn.disabled = true;
+        }
+      }
+    });
     const sourceLine = document.querySelector('.diff-line-source');
     if (sourceLine) {
       sourceLine.scrollIntoView({ block: 'center' });
@@ -276,7 +398,7 @@ export class CommitDetailsPanel {
       <span class="path">${oldPathHtml}${escapeHtml(file.path)}</span>
     </div>`;
 
-    const body = this.renderDiffBody(diff, this.sourceCommitLineFor(file.path));
+    const body = this.renderDiffBody(file.path, diff, this.sourceCommitLineFor(file.path));
     return `<div class="file-section">${header}${body}</div>`;
   }
 
@@ -288,25 +410,33 @@ export class CommitDetailsPanel {
     return relativeSourcePath === filePath ? this.source.commitLine : undefined;
   }
 
-  private renderDiffBody(diff: FileDiff | undefined, matchCommitLine: number | undefined): string {
+  private renderDiffBody(filePath: string, diff: FileDiff | undefined, matchCommitLine: number | undefined): string {
     if (!diff) {
       return '<div class="diff-meta">No diff available for this file.</div>';
     }
-    if (diff.lines.length === 0) {
+    if (diff.hunks.length === 0) {
       return '<div class="diff-meta">No content changes.</div>';
     }
 
-    const lines = diff.lines.map((line) => this.renderDiffLine(line, matchCommitLine)).join('\n');
+    const hunksHtml = diff.hunks
+      .map((hunk, index) => this.renderHunk(filePath, hunk, index, matchCommitLine))
+      .join('\n');
     const truncatedNotice = diff.truncated
       ? '<div class="diff-meta">&hellip; diff truncated, open the file to see the rest.</div>'
       : '';
-    return `<div class="diff-body">${lines}${truncatedNotice}</div>`;
+    return `<div class="diff-body">${hunksHtml}${truncatedNotice}</div>`;
+  }
+
+  private renderHunk(filePath: string, hunk: DiffHunk, hunkIndex: number, matchCommitLine: number | undefined): string {
+    const revertButton = isRevertibleHunk(hunk)
+      ? `<button class="revert-btn" data-file="${escapeHtml(filePath)}" data-hunk="${hunkIndex}" title="Undo this change in the current working copy">Revert Hunk</button>`
+      : '';
+    const headerHtml = `<div class="hunk-header"><span>${escapeHtml(hunk.header)}</span>${revertButton}</div>`;
+    const lines = hunk.lines.map((line) => this.renderDiffLine(line, matchCommitLine)).join('\n');
+    return `${headerHtml}${lines}`;
   }
 
   private renderDiffLine(line: DiffLine, matchCommitLine: number | undefined): string {
-    if (line.kind === 'hunk-header') {
-      return `<div class="diff-line diff-hunk">${escapeHtml(line.text)}</div>`;
-    }
     if (line.kind === 'meta') {
       return `<div class="diff-line diff-meta">${escapeHtml(line.text)}</div>`;
     }

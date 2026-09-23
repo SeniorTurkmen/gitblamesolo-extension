@@ -3,8 +3,9 @@ import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { applyPatchReverse } from '../../src/git/gitApply';
 import { blameLine } from '../../src/git/gitBlame';
-import { getCommitDiff } from '../../src/git/gitCommitDiff';
+import { buildHunkPatch, getCommitDiff, isRevertibleHunk } from '../../src/git/gitCommitDiff';
 import { getLineDiffHunk } from '../../src/git/gitDiff';
 import { getCommitDetails } from '../../src/git/gitLog';
 
@@ -94,9 +95,51 @@ describe('git blame integration', () => {
     const diffs = await getCommitDiff(blame!.sha, repoRoot);
     assert.strictEqual(diffs.length, 1);
     assert.strictEqual(diffs[0].path, 'file.txt');
-    assert.ok(diffs[0].lines.some((l) => l.kind === 'del' && l.text === 'line two'));
-    assert.ok(diffs[0].lines.some((l) => l.kind === 'add' && l.text === 'line two changed'));
-    assert.ok(diffs[0].lines.some((l) => l.kind === 'add' && l.text === 'line three'));
+    const allLines = diffs[0].hunks.flatMap((h) => h.lines);
+    assert.ok(allLines.some((l) => l.kind === 'del' && l.text === 'line two'));
+    assert.ok(allLines.some((l) => l.kind === 'add' && l.text === 'line two changed'));
+    assert.ok(allLines.some((l) => l.kind === 'add' && l.text === 'line three'));
+  });
+
+  it('reverts a hunk against the working tree with git apply --reverse', async () => {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const blame = await blameLine({ filePath, content, line: 1, repoRoot });
+    assert.ok(blame);
+
+    const diffs = await getCommitDiff(blame!.sha, repoRoot);
+    const hunk = diffs[0].hunks[0];
+    assert.ok(isRevertibleHunk(hunk));
+
+    const patch = buildHunkPatch('file.txt', hunk);
+    await applyPatchReverse(patch, repoRoot);
+
+    const afterRevert = fs.readFileSync(filePath, 'utf8');
+    assert.strictEqual(afterRevert, 'line one\nline two\n');
+
+    // `git blame --contents -` only diffs against HEAD, so a working-tree line that
+    // happens to match an older ancestor still reads as uncommitted relative to HEAD.
+    // Restore the tracked version so later tests see a clean, HEAD-matching file.
+    git(repoRoot, ['checkout', '--', 'file.txt']);
+  });
+
+  it('fails without touching the file when the hunk no longer applies cleanly', async () => {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const blame = await blameLine({ filePath, content, line: 1, repoRoot });
+    assert.ok(blame);
+    assert.strictEqual(blame!.isUncommitted, false);
+
+    const diffs = await getCommitDiff(blame!.sha, repoRoot);
+    const hunk = diffs[0].hunks[0];
+
+    // Drift the working tree away from what the hunk expects.
+    fs.writeFileSync(filePath, 'line one\nline two changed AGAIN\nline three\n');
+    const patch = buildHunkPatch('file.txt', hunk);
+
+    await assert.rejects(() => applyPatchReverse(patch, repoRoot));
+    assert.strictEqual(fs.readFileSync(filePath, 'utf8'), 'line one\nline two changed AGAIN\nline three\n');
+
+    // Restore the tracked version for isolation from any later tests.
+    git(repoRoot, ['checkout', '--', 'file.txt']);
   });
 });
 
