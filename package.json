@@ -6,6 +6,10 @@
   "publisher": "gitblamesolo",
   "license": "MIT",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SeniorTurkmen/gitblamesolo-extension.git"
+  },
   "type": "commonjs",
   "engines": {
     "vscode": "^1.90.0"
