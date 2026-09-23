@@ -6,7 +6,7 @@ Aktif satırın kenarında, o satırı en son değiştiren commit'i (yazar, tari
 
 - Aktif satırda satır sonu inline blame anotasyonu (GitLens'in "current line blame" özelliğine benzer).
 - Herhangi bir satırın üzerine gelindiğinde tam commit detayları ve satırın ait olduğu **tüm değişen bloğu** gösteren diff ("What changed") — tek satır değil, aynı hunk'taki tüm ardışık değişiklikler.
-- Hover'daki "View changed files" linkiyle, o commit'in değiştirdiği tüm dosyaların listesini ve **her dosyanın renkli diff içeriğini** (eklenen/silinen satırlar net şekilde ayrılmış) gösteren bir webview paneli açılır; dosya başlığına tıklayınca dosya editörde açılır.
+- Hover'daki "View changed files" linkiyle, o commit'in değiştirdiği tüm dosyaların listesini ve **her dosyanın renkli diff içeriğini** (eklenen/silinen satırlar net şekilde ayrılmış) gösteren bir webview paneli açılır; dosya başlığına tıklayınca dosya editörde açılır. Panelin üstünde, panelin hangi dosya/satırdan açıldığını gösteren ve tıklanınca oraya geri dönen bir bant bulunur.
 - Kaydedilmemiş değişiklikler `git blame --contents -` ile canlı buffer'a karşı hesaplanır; commit'lenmemiş satırlar ayrıca işaretlenir.
 - Komutlar: `Git Blame Solo: Toggle Inline Blame`, `Show Commit Details`, `Copy Commit Hash`.
 

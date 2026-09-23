@@ -44,3 +44,10 @@ export interface CommitDetails {
   body: string;
   files: CommitFileChange[];
 }
+
+/** Where the "Show Commit Details" panel was opened from, so it can show and jump back to it. */
+export interface SourceLocation {
+  filePath: string;
+  /** 0-based. */
+  line: number;
+}

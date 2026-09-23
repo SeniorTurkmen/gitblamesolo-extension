@@ -10,8 +10,8 @@ import { getCommitDetails } from '../git/gitLog';
 import { resolveRepository } from '../git/gitRepository';
 import { formatDate } from '../util/dateFormat';
 
-function buildShowDetailsCommandUri(sha: string, repoRoot: string): string {
-  const args = encodeURIComponent(JSON.stringify([sha, repoRoot]));
+function buildShowDetailsCommandUri(sha: string, repoRoot: string, sourceFilePath: string, sourceLine: number): string {
+  const args = encodeURIComponent(JSON.stringify([sha, repoRoot, sourceFilePath, sourceLine]));
   return `command:gitBlameSolo.showCommitDetails?${args}`;
 }
 
@@ -116,7 +116,7 @@ export class BlameHoverProvider implements vscode.HoverProvider {
 
     const fileCount = commit.files.length;
     const fileLabel = fileCount === 1 ? '1 file' : `${fileCount} files`;
-    const commandUri = buildShowDetailsCommandUri(commit.sha, repo.rootFsPath);
+    const commandUri = buildShowDetailsCommandUri(commit.sha, repo.rootFsPath, document.uri.fsPath, line);
     md.appendMarkdown(`\n\n[View changed files (${fileLabel})](${commandUri})`);
     return new vscode.Hover(md, range);
   }

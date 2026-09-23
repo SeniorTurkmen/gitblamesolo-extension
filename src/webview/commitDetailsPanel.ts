@@ -1,12 +1,9 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { CommitDetails, CommitFileChange, DiffLine, FileChangeStatus, FileDiff } from '../types';
+import { CommitDetails, CommitFileChange, DiffLine, FileChangeStatus, FileDiff, SourceLocation } from '../types';
 import { formatDate } from '../util/dateFormat';
 
-interface WebviewMessage {
-  type: 'openFile';
-  path: string;
-}
+type WebviewMessage = { type: 'openFile'; path: string } | { type: 'openSource' };
 
 const STATUS_LABELS: Record<FileChangeStatus, string> = {
   A: 'Added',
@@ -25,10 +22,11 @@ export class CommitDetailsPanel {
   private readonly panel: vscode.WebviewPanel;
   private readonly disposables: vscode.Disposable[] = [];
   private repoRoot: string;
+  private source: SourceLocation | undefined;
 
-  static show(commit: CommitDetails, diffs: FileDiff[], repoRoot: string): void {
+  static show(commit: CommitDetails, diffs: FileDiff[], repoRoot: string, source?: SourceLocation): void {
     if (CommitDetailsPanel.current) {
-      CommitDetailsPanel.current.update(commit, diffs, repoRoot);
+      CommitDetailsPanel.current.update(commit, diffs, repoRoot, source);
       CommitDetailsPanel.current.panel.reveal(vscode.ViewColumn.Beside);
       return;
     }
@@ -39,10 +37,16 @@ export class CommitDetailsPanel {
       vscode.ViewColumn.Beside,
       { enableScripts: true, retainContextWhenHidden: true },
     );
-    CommitDetailsPanel.current = new CommitDetailsPanel(panel, commit, diffs, repoRoot);
+    CommitDetailsPanel.current = new CommitDetailsPanel(panel, commit, diffs, repoRoot, source);
   }
 
-  private constructor(panel: vscode.WebviewPanel, commit: CommitDetails, diffs: FileDiff[], repoRoot: string) {
+  private constructor(
+    panel: vscode.WebviewPanel,
+    commit: CommitDetails,
+    diffs: FileDiff[],
+    repoRoot: string,
+    source: SourceLocation | undefined,
+  ) {
     this.panel = panel;
     this.repoRoot = repoRoot;
 
@@ -53,11 +57,12 @@ export class CommitDetailsPanel {
       this.disposables,
     );
 
-    this.update(commit, diffs, repoRoot);
+    this.update(commit, diffs, repoRoot, source);
   }
 
-  private update(commit: CommitDetails, diffs: FileDiff[], repoRoot: string): void {
+  private update(commit: CommitDetails, diffs: FileDiff[], repoRoot: string, source: SourceLocation | undefined): void {
     this.repoRoot = repoRoot;
+    this.source = source;
     this.panel.title = `Commit ${commit.sha.slice(0, 7)}`;
     this.panel.webview.html = this.renderHtml(commit, diffs);
   }
@@ -71,6 +76,19 @@ export class CommitDetailsPanel {
       } catch {
         void vscode.window.showWarningMessage(`Git Blame Solo: could not open "${message.path}".`);
       }
+      return;
+    }
+
+    if (message.type === 'openSource' && this.source) {
+      try {
+        const document = await vscode.workspace.openTextDocument(this.source.filePath);
+        const editor = await vscode.window.showTextDocument(document, { preview: true });
+        const position = new vscode.Position(this.source.line, 0);
+        editor.selection = new vscode.Selection(position, position);
+        editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+      } catch {
+        void vscode.window.showWarningMessage('Git Blame Solo: could not open the source location.');
+      }
     }
   }
 
@@ -82,6 +100,8 @@ export class CommitDetailsPanel {
     const sectionsHtml = commit.files.length
       ? commit.files.map((f) => this.renderFileSection(f, diffsByPath.get(f.path))).join('\n')
       : '<p class="empty">No file changes recorded.</p>';
+
+    const sourceBarHtml = this.renderSourceBar();
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -195,9 +215,33 @@ export class CommitDetailsPanel {
       font-style: italic;
       padding: 0.3rem 0.5rem;
     }
+    .source-bar {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-bottom: 0.75rem;
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      background: var(--vscode-textBlockQuote-background, var(--vscode-editorWidget-background));
+      border-left: 3px solid var(--vscode-textLink-foreground);
+      font-size: 0.82rem;
+      color: var(--vscode-descriptionForeground);
+      cursor: pointer;
+    }
+    .source-bar:hover {
+      background: var(--vscode-list-hoverBackground);
+    }
+    .source-bar .source-label {
+      opacity: 0.85;
+    }
+    .source-bar .source-path {
+      color: var(--vscode-textLink-foreground);
+      font-family: var(--vscode-editor-font-family, monospace);
+    }
   </style>
 </head>
 <body>
+  ${sourceBarHtml}
   <h2>${escapeHtml(commit.summary)}</h2>
   <div class="meta">
     ${escapeHtml(commit.authorName)} &lt;${escapeHtml(commit.authorEmail)}&gt; &bull;
@@ -214,9 +258,27 @@ export class CommitDetailsPanel {
         vscode.postMessage({ type: 'openFile', path: el.getAttribute('data-path') });
       });
     });
+    const sourceBar = document.querySelector('[data-action="openSource"]');
+    if (sourceBar) {
+      sourceBar.addEventListener('click', () => {
+        vscode.postMessage({ type: 'openSource' });
+      });
+    }
   </script>
 </body>
 </html>`;
+  }
+
+  private renderSourceBar(): string {
+    if (!this.source) {
+      return '';
+    }
+    const relativePath = path.relative(this.repoRoot, this.source.filePath).split(path.sep).join('/');
+    const displayPath = relativePath || path.basename(this.source.filePath);
+    return `<div class="source-bar" data-action="openSource" title="Jump back to where this was opened from">
+      <span class="source-label">Opened from</span>
+      <span class="source-path">${escapeHtml(displayPath)}:${this.source.line + 1}</span>
+    </div>`;
   }
 
   private renderFileSection(file: CommitFileChange, diff: FileDiff | undefined): string {

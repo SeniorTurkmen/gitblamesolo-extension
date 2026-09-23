@@ -63,9 +63,11 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'gitBlameSolo.showCommitDetails',
-      async (shaArg?: string, repoRootArg?: string) => {
+      async (shaArg?: string, repoRootArg?: string, sourceFilePathArg?: string, sourceLineArg?: number) => {
         let sha = shaArg;
         let repoRoot = repoRootArg;
+        let sourceFilePath = sourceFilePathArg;
+        let sourceLine = sourceLineArg;
 
         if (!sha || !repoRoot) {
           const editor = vscode.window.activeTextEditor;
@@ -92,6 +94,8 @@ export function activate(context: vscode.ExtensionContext): void {
           }
           sha = blame.sha;
           repoRoot = repo.rootFsPath;
+          sourceFilePath = document.uri.fsPath;
+          sourceLine = line;
         }
 
         const commit = await commitCache.getOrCompute(sha, () => getCommitDetails(sha!, repoRoot!));
@@ -100,7 +104,8 @@ export function activate(context: vscode.ExtensionContext): void {
           return;
         }
         const diffs = await commitDiffCache.getOrCompute(sha, () => getCommitDiff(sha!, repoRoot!));
-        CommitDetailsPanel.show(commit, diffs, repoRoot);
+        const source = sourceFilePath ? { filePath: sourceFilePath, line: sourceLine ?? 0 } : undefined;
+        CommitDetailsPanel.show(commit, diffs, repoRoot, source);
       },
     ),
   );
