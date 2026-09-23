@@ -4,6 +4,7 @@
   "description": "Shows who changed the current line, when, and with which commit — inline and on hover.",
   "version": "0.0.1",
   "publisher": "gitblamesolo",
+  "license": "MIT",
   "private": true,
   "type": "commonjs",
   "engines": {
