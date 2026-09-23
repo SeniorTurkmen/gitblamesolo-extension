@@ -20,6 +20,20 @@ export interface CommitFileChange {
   oldPath?: string;
 }
 
+export type DiffLineKind = 'add' | 'del' | 'context' | 'hunk-header' | 'meta';
+
+export interface DiffLine {
+  kind: DiffLineKind;
+  text: string;
+}
+
+export interface FileDiff {
+  path: string;
+  oldPath?: string;
+  lines: DiffLine[];
+  truncated: boolean;
+}
+
 export interface CommitDetails {
   sha: string;
   authorName: string;

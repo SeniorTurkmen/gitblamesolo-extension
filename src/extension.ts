@@ -1,11 +1,13 @@
 import * as vscode from 'vscode';
 import { BlameCache } from './cache/blameCache';
 import { CommitCache } from './cache/commitCache';
+import { CommitDiffCache } from './cache/commitDiffCache';
 import { LineDiffCache } from './cache/lineDiffCache';
 import { getConfig, onConfigChanged } from './config';
 import { CurrentLineBlameDecorator } from './decorations/currentLineDecorator';
 import { GitCliError, runGit } from './git/gitCli';
 import { blameLine } from './git/gitBlame';
+import { getCommitDiff } from './git/gitCommitDiff';
 import { getCommitDetails } from './git/gitLog';
 import { resolveRepository } from './git/gitRepository';
 import { BlameHoverProvider } from './hover/blameHoverProvider';
@@ -28,6 +30,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const blameCache = new BlameCache();
   const commitCache = new CommitCache();
+  const commitDiffCache = new CommitDiffCache();
   const lineDiffCache = new LineDiffCache();
   const decorator = new CurrentLineBlameDecorator({ blameCache, getConfig });
 
@@ -96,7 +99,8 @@ export function activate(context: vscode.ExtensionContext): void {
           void vscode.window.showWarningMessage(`Git Blame Solo: could not load details for commit ${sha}.`);
           return;
         }
-        CommitDetailsPanel.show(commit, repoRoot);
+        const diffs = await commitDiffCache.getOrCompute(sha, () => getCommitDiff(sha!, repoRoot!));
+        CommitDetailsPanel.show(commit, diffs, repoRoot);
       },
     ),
   );

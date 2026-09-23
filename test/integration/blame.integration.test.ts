@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { blameLine } from '../../src/git/gitBlame';
+import { getCommitDiff } from '../../src/git/gitCommitDiff';
 import { getLineDiffHunk } from '../../src/git/gitDiff';
 import { getCommitDetails } from '../../src/git/gitLog';
 
@@ -83,6 +84,19 @@ describe('git blame integration', () => {
     assert.ok(hunk!.includes('-line two'));
     assert.ok(hunk!.includes('+line two changed'));
     assert.ok(hunk!.includes('+line three'));
+  });
+
+  it('produces a full commit diff with the file changes classified by line kind', async () => {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const blame = await blameLine({ filePath, content, line: 1, repoRoot });
+    assert.ok(blame);
+
+    const diffs = await getCommitDiff(blame!.sha, repoRoot);
+    assert.strictEqual(diffs.length, 1);
+    assert.strictEqual(diffs[0].path, 'file.txt');
+    assert.ok(diffs[0].lines.some((l) => l.kind === 'del' && l.text === 'line two'));
+    assert.ok(diffs[0].lines.some((l) => l.kind === 'add' && l.text === 'line two changed'));
+    assert.ok(diffs[0].lines.some((l) => l.kind === 'add' && l.text === 'line three'));
   });
 });
 
