@@ -9,6 +9,7 @@ import { formatDate } from '../util/dateFormat';
 type WebviewMessage =
   | { type: 'openFile'; path: string }
   | { type: 'openSource' }
+  | { type: 'openDiff'; path: string; oldPath?: string }
   | { type: 'revertHunk'; path: string; hunkIndex: number };
 
 const STATUS_LABELS: Record<FileChangeStatus, string> = {
@@ -28,6 +29,7 @@ export class CommitDetailsPanel {
   private readonly panel: vscode.WebviewPanel;
   private readonly disposables: vscode.Disposable[] = [];
   private repoRoot: string;
+  private commitSha = '';
   private source: SourceLocation | undefined;
   private diffs: FileDiff[] = [];
 
@@ -69,6 +71,7 @@ export class CommitDetailsPanel {
 
   private update(commit: CommitDetails, diffs: FileDiff[], repoRoot: string, source: SourceLocation | undefined): void {
     this.repoRoot = repoRoot;
+    this.commitSha = commit.sha;
     this.source = source;
     this.diffs = diffs;
     this.panel.title = `Commit ${commit.sha.slice(0, 7)}`;
@@ -82,6 +85,16 @@ export class CommitDetailsPanel {
     }
     if (message.type === 'openSource') {
       await this.openSource();
+      return;
+    }
+    if (message.type === 'openDiff') {
+      await vscode.commands.executeCommand(
+        'gitBlameSolo.openDiff',
+        this.commitSha,
+        this.repoRoot,
+        message.path,
+        message.oldPath,
+      );
       return;
     }
     if (message.type === 'revertHunk') {
@@ -332,6 +345,20 @@ export class CommitDetailsPanel {
       border-color: transparent;
       background: transparent;
     }
+    .diff-editor-btn {
+      flex-shrink: 0;
+      font-family: var(--vscode-font-family);
+      font-size: 0.75rem;
+      padding: 0.1rem 0.5rem;
+      border-radius: 3px;
+      border: 1px solid var(--vscode-button-border, transparent);
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      cursor: pointer;
+    }
+    .diff-editor-btn:hover {
+      background: var(--vscode-button-hoverBackground);
+    }
   </style>
 </head>
 <body>
@@ -355,6 +382,16 @@ export class CommitDetailsPanel {
       el.addEventListener('click', (e) => {
         e.stopPropagation();
         vscode.postMessage({ type: 'openSource' });
+      });
+    });
+    document.querySelectorAll('.diff-editor-btn').forEach((el) => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        vscode.postMessage({
+          type: 'openDiff',
+          path: el.getAttribute('data-file'),
+          oldPath: el.getAttribute('data-old-file') || undefined,
+        });
       });
     });
     document.querySelectorAll('.revert-btn').forEach((el) => {
@@ -399,6 +436,7 @@ export class CommitDetailsPanel {
     const header = `<div class="file-header" data-path="${escapeHtml(file.path)}" title="Click to open ${escapeHtml(statusLabel)}">
       <span class="status status-${escapeHtml(statusLetter)}">${escapeHtml(statusLetter)}</span>
       <span class="path">${oldPathHtml}${escapeHtml(file.path)}</span>
+      <button class="diff-editor-btn" data-file="${escapeHtml(file.path)}" data-old-file="${escapeHtml(file.oldPath ?? '')}" title="Open this file's change in VS Code's diff editor">Open Diff</button>
     </div>`;
 
     const body = this.renderDiffBody(file.path, diff, this.sourceCommitLineFor(file.path));

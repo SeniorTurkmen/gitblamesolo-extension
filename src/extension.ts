@@ -60,8 +60,8 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'gitBlameSolo.openDiff',
-      async (sha: string, repoRoot: string, relativePath: string) => {
-        const leftUri = buildGitShowUri(`${sha}^`, repoRoot, relativePath);
+      async (sha: string, repoRoot: string, relativePath: string, oldRelativePath?: string) => {
+        const leftUri = buildGitShowUri(`${sha}^`, repoRoot, oldRelativePath ?? relativePath);
         const rightUri = buildGitShowUri(sha, repoRoot, relativePath);
         const fileName = path.basename(relativePath);
         const title = `${fileName} (${sha.slice(0, 7)}^ ↔ ${sha.slice(0, 7)})`;
