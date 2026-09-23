@@ -1,3 +1,4 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { BlameCache } from './cache/blameCache';
 import { CommitCache } from './cache/commitCache';
@@ -10,6 +11,7 @@ import { blameLine } from './git/gitBlame';
 import { getCommitDiff } from './git/gitCommitDiff';
 import { getCommitDetails } from './git/gitLog';
 import { resolveRepository } from './git/gitRepository';
+import { buildGitShowUri, GIT_SHOW_SCHEME, GitShowContentProvider } from './git/gitShowContentProvider';
 import { BlameHoverProvider } from './hover/blameHoverProvider';
 import { CommitDetailsPanel } from './webview/commitDetailsPanel';
 
@@ -51,6 +53,22 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
   context.subscriptions.push(onConfigChanged(() => decorator.refreshNow()));
+  context.subscriptions.push(
+    vscode.workspace.registerTextDocumentContentProvider(GIT_SHOW_SCHEME, new GitShowContentProvider()),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'gitBlameSolo.openDiff',
+      async (sha: string, repoRoot: string, relativePath: string) => {
+        const leftUri = buildGitShowUri(`${sha}^`, repoRoot, relativePath);
+        const rightUri = buildGitShowUri(sha, repoRoot, relativePath);
+        const fileName = path.basename(relativePath);
+        const title = `${fileName} (${sha.slice(0, 7)}^ ↔ ${sha.slice(0, 7)})`;
+        await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, title, { preview: true });
+      },
+    ),
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand('gitBlameSolo.toggle', async () => {

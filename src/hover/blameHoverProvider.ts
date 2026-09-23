@@ -1,3 +1,4 @@
+import * as path from 'path';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { BlameCache } from '../cache/blameCache';
@@ -22,9 +23,15 @@ function buildShowDetailsCommandUri(
   return `command:gitBlameSolo.showCommitDetails?${args}`;
 }
 
+function buildOpenDiffCommandUri(sha: string, repoRoot: string, relativePath: string): string {
+  const args = encodeURIComponent(JSON.stringify([sha, repoRoot, relativePath]));
+  return `command:gitBlameSolo.openDiff?${args}`;
+}
+
 function newMarkdown(): vscode.MarkdownString {
   const md = new vscode.MarkdownString();
   md.supportThemeIcons = true;
+  md.isTrusted = { enabledCommands: ['gitBlameSolo.showCommitDetails', 'gitBlameSolo.openDiff'] };
   return md;
 }
 
@@ -113,12 +120,11 @@ export class BlameHoverProvider implements vscode.HoverProvider {
         `$(account) ${blame.authorName} &nbsp;&nbsp; $(clock) ${formatDate(blame.authorTimestamp, 'absolute')}\n\n`,
       );
       md.appendMarkdown(`\`${blame.sha.slice(0, 7)}\``);
-      this.appendDiff(md, diffHunk);
+      this.appendDiff(md, diffHunk, blame.sha, repo.rootFsPath, document.uri.fsPath);
       return new vscode.Hover(md, range);
     }
 
     const md = newMarkdown();
-    md.isTrusted = { enabledCommands: ['gitBlameSolo.showCommitDetails'] };
     md.appendMarkdown(`$(git-commit) **${commit.summary}**\n\n`);
     md.appendMarkdown(
       `$(account) ${commit.authorName} &nbsp;&nbsp; $(clock) ${formatDate(commit.authorTimestamp, 'absolute')}\n\n`,
@@ -127,7 +133,7 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       md.appendMarkdown(`${commit.body}\n\n`);
     }
     md.appendMarkdown(`\`${commit.sha.slice(0, 7)}\``);
-    this.appendDiff(md, diffHunk);
+    this.appendDiff(md, diffHunk, commit.sha, repo.rootFsPath, document.uri.fsPath);
 
     md.appendMarkdown('\n\n---\n\n');
     const fileCount = commit.files.length;
@@ -143,7 +149,13 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     return new vscode.Hover(md, range);
   }
 
-  private appendDiff(md: vscode.MarkdownString, diffHunk: string | undefined): void {
+  private appendDiff(
+    md: vscode.MarkdownString,
+    diffHunk: string | undefined,
+    sha: string,
+    repoRoot: string,
+    filePath: string,
+  ): void {
     if (!diffHunk) {
       return;
     }
@@ -160,9 +172,13 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       .filter(Boolean)
       .join(' &nbsp; ');
 
+    const relativePath = path.relative(repoRoot, filePath).split(path.sep).join('/');
+    const openDiffUri = buildOpenDiffCommandUri(sha, repoRoot, relativePath);
+
     md.appendMarkdown('\n\n---\n\n');
     md.appendMarkdown(`$(diff) **What changed**${stats ? ` &nbsp; ${stats}` : ''}\n`);
     md.appendCodeblock(diffHunk, 'diff');
+    md.appendMarkdown(`\n[$(link-external) Open in Diff Editor](${openDiffUri})`);
   }
 
   private async getMtimeSeconds(fsPath: string): Promise<number> {
