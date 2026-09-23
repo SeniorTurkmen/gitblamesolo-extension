@@ -1,5 +1,7 @@
 .vscode/**
 .vscode-test/**
+.vscode-test.mjs
+.mocharc.json
 src/**
 test/**
 .gitignore
