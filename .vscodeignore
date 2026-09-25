@@ -13,3 +13,4 @@ tsconfig.json
 **/.gitkeep
 node_modules/**
 out/**
+docs/**

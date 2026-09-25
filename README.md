@@ -5,21 +5,154 @@
 [![VS Code](https://img.shields.io/badge/VS%20Code-%5E1.90.0-007ACC.svg)](https://code.visualstudio.com/)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#contributing)
 
-Shows who last changed the current line — author, date, commit message — right at the end of the line. If the line hasn't been committed yet, it shows "Uncommitted changes" and when the file was last saved. Hover over any line to see the full commit details (hash, author, date, full message) in a popup.
+**Git Blame Solo answers "who changed this line, when, and why?" without making you leave the editor.**
+
+Move your cursor to any line and a quiet annotation at the end of it shows the author, how long ago it changed, and the commit message. Hover the line to see the full commit and the exact change it introduced. One more click gives you every file in that commit with colored diffs, and you can revert a single hunk from there if you need to.
+
+It does one thing, stays out of the way, and has no dependencies beyond the `git` you already have installed.
+
+![Git Blame Solo overview](docs/images/overview.png)
+
+---
+
+## Table of contents
+
+- [Features](#features)
+  - [Inline blame on the current line](#inline-blame-on-the-current-line)
+  - [Uncommitted changes, even before you save](#uncommitted-changes-even-before-you-save)
+  - [Rich hover: the commit and what it changed](#rich-hover-the-commit-and-what-it-changed)
+  - [Native diff editor](#native-diff-editor)
+  - [Commit details panel](#commit-details-panel)
+  - [Revert a single hunk](#revert-a-single-hunk)
+  - [Commands](#commands)
+- [Requirements](#requirements)
+- [Settings](#settings)
+- [Known limitations](#known-limitations)
+- [Development](#development)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
 
 ## Features
 
-- Inline blame annotation at the end of the active line (similar to GitLens's "current line blame").
-- Hovering any line shows full commit details plus a "What changed" diff of the **entire changed block** the line belongs to — not just that one line, but every contiguous line changed in the same hunk — with an added/removed line-count summary.
-- An **"Open in Diff Editor"** link in the hover opens the change in VS Code's real, native diff editor (comparing the commit against its parent).
-- The hover's **"View changed files"** link opens a panel listing every file the commit touched, each with its **full colored diff** (added/removed lines clearly marked). Clicking a file's header opens it in the editor; an **"Open Diff"** button opens the same native diff editor per file. The panel also marks the exact line you opened it from directly inside that file's diff, and clicking it jumps back to that spot.
-- A **"Revert Hunk"** button next to each hunk in the panel undoes just that hunk in the current working copy via `git apply --reverse`. It's blocked if the file has unsaved changes, always asks for confirmation first, and leaves the file untouched with a clear error if the hunk no longer matches the file's current content.
-- Uncommitted changes are computed by diffing the live editor buffer against git history (`git blame --contents -`), so lines you haven't saved yet are already flagged correctly.
-- Commands: `Git Blame Solo: Toggle Inline Blame`, `Show Commit Details`, `Copy Commit Hash`.
+### Inline blame on the current line
 
-## Known limitation
+As your cursor moves, a faded annotation appears at the end of the active line:
 
-The timestamp shown for uncommitted lines is based on the file's last save time on disk (`mtime`), not on every individual keystroke.
+```
+Jane Doe, 3 days ago • Fix race condition in session refresh
+```
+
+- Only the **active line** is annotated, so the rest of your code stays uncluttered.
+- Recomputation is **debounced** (150 ms by default), so scrolling or holding an arrow key doesn't spawn a flood of `git` processes.
+- Results are **cached per document**, so moving back to a line you already visited is instant.
+- The format is fully customizable through a template. See [`gitBlameSolo.decorationTemplate`](#settings).
+
+![Inline blame annotation at the end of the current line](docs/images/inline-blame.png)
+
+### Uncommitted changes, even before you save
+
+When a line hasn't been committed yet, the annotation says **"Uncommitted changes"** along with when the file was last modified.
+
+Blame is computed against the **live editor buffer**: the extension pipes the buffer's contents to `git blame --contents -`. Lines you just typed are flagged correctly **before you save**, and line numbers never drift out of sync with what's on disk.
+
+![Uncommitted line annotation](docs/images/uncommitted.png)
+
+### Rich hover: the commit and what it changed
+
+Hover any line (not just the active one) to open a popup containing:
+
+| Section | What you see |
+| --- | --- |
+| **Header** | Commit subject, author, absolute date, and short hash |
+| **Body** | The full commit message body, if there is one |
+| **What changed** | A colored `diff` of the **entire changed block** the line belongs to (every contiguous line changed in the same hunk, not only the hovered line), with an added/removed line count |
+| **Actions** | **Open in Diff Editor** and **View changed files (N files)** |
+
+This shows you the context of a change right away: you see the rest of the block that changed with the line, not just the one line in isolation.
+
+![Hover popup with commit details and the changed block](docs/images/hover.png)
+
+### Native diff editor
+
+**Open in Diff Editor** in the hover opens the file in VS Code's built-in side-by-side diff editor, comparing the commit (`<sha>`) against its parent (`<sha>^`). Syntax highlighting, inline/side-by-side toggling, and navigating between changes all work as usual.
+
+![Native VS Code diff editor opened from the hover](docs/images/diff-editor.png)
+
+### Commit details panel
+
+**View changed files** in the hover (or the **Git Blame Solo: Show Commit Details** command) opens a panel with the whole commit:
+
+- The commit message, author, date, and hash at the top.
+- **Every file the commit touched**, each with its **full colored diff**. Added and removed lines are clearly marked.
+- Click a **file header** to open that file in the editor.
+- The **Open Diff** button opens that file's change in the native diff editor.
+- **The line you started from is highlighted** inside its file's diff, so you don't lose your place in a large commit. Clicking the highlighted line takes you back to that spot in the editor.
+
+![Commit details panel listing every changed file with diffs](docs/images/commit-panel.png)
+
+### Revert a single hunk
+
+Each hunk in the panel has a **Revert Hunk** button. It undoes **only that hunk** in your working copy using `git apply --reverse` and leaves the rest of the commit alone.
+
+Several safeguards are built in:
+
+1. **Unsaved changes block the revert.** If the file has unsaved edits, you're asked to save or discard them first.
+2. **Always asks first.** A modal dialog shows exactly which lines will be affected before anything changes.
+3. **Fails safely.** If the file has changed since that commit and the hunk no longer applies cleanly, the file is **left untouched** and you get a clear error message.
+
+After a successful revert, the button changes to **Reverted**, and a notification offers to open the file.
+
+![Revert Hunk confirmation dialog](docs/images/revert-hunk.png)
+
+### Commands
+
+Open the Command Palette (<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>) and type **Git Blame Solo**:
+
+| Command | Description |
+| --- | --- |
+| `Git Blame Solo: Toggle Inline Blame` | Turns the end-of-line annotation on or off (saved to your user settings). |
+| `Git Blame Solo: Show Commit Details` | Opens the commit details panel for the line under the cursor. Also available from the editor's right-click menu. |
+| `Git Blame Solo: Copy Commit Hash` | Copies the full hash of the commit that last changed the current line to the clipboard. |
+
+---
+
+## Requirements
+
+- VS Code **1.90** or later.
+- `git` available on your `PATH`. If it isn't, the extension shows a one-time warning and turns off blame and hover.
+- The file must be inside a git repository. Files outside a repository are ignored.
+
+## Settings
+
+| Setting | Default | Description |
+| --- | --- | --- |
+| `gitBlameSolo.enabled` | `true` | Show the inline blame annotation for the current line. |
+| `gitBlameSolo.dateStyle` | `"relative"` | `"relative"` (e.g. *3 days ago*) or `"absolute"` date formatting in the annotation and hover. |
+| `gitBlameSolo.decorationTemplate` | `"${author}, ${date} • ${message}"` | Template for the inline annotation. Placeholders: `${author}` `${date}` `${message}` `${hash}`. |
+| `gitBlameSolo.decorationColor` | `""` | Theme color id (e.g. `editorLineNumber.foreground`) or hex color (e.g. `#888888`). Empty uses `editorCodeLens.foreground`. |
+| `gitBlameSolo.debounceMs` | `150` | Milliseconds to wait after the cursor stops moving before recomputing blame. |
+| `gitBlameSolo.hover.enabled` | `true` | Show full commit details on hover. |
+| `gitBlameSolo.maxFileSizeKB` | `5000` | Files larger than this are skipped for performance. |
+| `gitBlameSolo.uncommittedLabel` | `"Uncommitted changes"` | Label shown for lines that haven't been committed yet. |
+
+For example, to show the short hash first with an absolute date:
+
+```jsonc
+{
+  "gitBlameSolo.decorationTemplate": "${hash} · ${author} · ${date}",
+  "gitBlameSolo.dateStyle": "absolute"
+}
+```
+
+## Known limitations
+
+- The timestamp shown for uncommitted lines is the file's **last save time on disk** (`mtime`), not the time of each individual keystroke.
+- Files larger than `gitBlameSolo.maxFileSizeKB` are skipped.
+- Only local files (`file:` scheme) are supported. Virtual or remote file systems aren't blamed.
+
+---
 
 ## Development
 
@@ -28,17 +161,31 @@ npm install
 npm run watch     # esbuild watch mode
 ```
 
-Press `F5` to launch the "Run Extension" configuration and try it out in an Extension Development Host.
+Press <kbd>F5</kbd> to launch the **Run Extension** configuration and try the extension in an Extension Development Host.
 
-## Testing
+### Project layout
+
+```
+src/
+├── extension.ts        # activation, command registration
+├── config.ts           # typed access to gitBlameSolo.* settings
+├── git/                # thin wrappers around the git CLI + output parsers
+├── cache/              # per-document / per-commit caches
+├── decorations/        # end-of-line annotation
+├── hover/              # hover provider
+├── webview/            # commit details panel
+└── util/               # date formatting, diff rendering
+```
+
+### Testing
 
 ```bash
 npm run typecheck   # full type-check via tsc --noEmit
-npm run test:unit   # pure function tests (parser, cache, date formatting) — 23 passing
+npm run test:unit   # pure function tests (parsers, caches, date formatting)
 npm test            # end-to-end integration tests in an Extension Development Host
 ```
 
-## Packaging
+### Packaging
 
 ```bash
 npm run package
@@ -49,7 +196,7 @@ npx vsce package
 
 Contributions are welcome! Bug reports, feature requests, and pull requests are all appreciated.
 
-Before opening a PR, please make sure:
+Before opening a PR, please make sure these all pass:
 
 ```bash
 npm run typecheck
@@ -57,7 +204,7 @@ npm run lint
 npm run test:unit
 ```
 
-all pass. If you're changing anything under `src/git/`, `src/cache/`, or `src/util/`, add or update a unit test alongside it — those modules are plain Node/TypeScript with no `vscode` dependency, so they run instantly under `npm run test:unit`. Anything under `src/decorations/`, `src/hover/`, `src/webview/`, or `src/extension.ts` needs `vscode` and is covered by `npm test` (Extension Development Host) or manual testing via `F5`.
+If you're changing anything under `src/git/`, `src/cache/`, or `src/util/`, add or update a unit test alongside it. Those modules are plain Node/TypeScript with no `vscode` dependency, so they run instantly under `npm run test:unit`. Anything under `src/decorations/`, `src/hover/`, `src/webview/`, or `src/extension.ts` needs `vscode` and is covered by `npm test` (Extension Development Host) or manual testing via <kbd>F5</kbd>.
 
 ## License
 
