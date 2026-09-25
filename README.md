@@ -189,8 +189,20 @@ npm test            # end-to-end integration tests in an Extension Development H
 
 ```bash
 npm run package
-npx vsce package
+npx vsce package --no-dependencies
 ```
+
+### Publishing to Open VSX
+
+A published GitHub release runs [`.github/workflows/publish.yml`](.github/workflows/publish.yml), which publishes the extension with [trusted publishing](https://github.com/eclipse-openvsx/openvsx/blob/master/cli/README.md#trusted-publishing). No access token is stored in the repo.
+
+One-time setup on [open-vsx.org](https://open-vsx.org):
+
+1. Sign in with GitHub, link an Eclipse account, and accept the Publisher Agreement.
+2. Create the `SeniorTurkmen` namespace (`npx ovsx create-namespace SeniorTurkmen`).
+3. Add a trusted publisher for this repository: workflow file `publish.yml`, no environment.
+
+`workflow_dispatch` on that workflow publishes the current `main` version the same way.
 
 ## Contributing
 
