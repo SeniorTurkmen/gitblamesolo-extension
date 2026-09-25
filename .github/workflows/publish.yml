@@ -26,4 +26,11 @@ jobs:
         run: npm ci
 
       - name: Publish to Open VSX
-        run: npm run publish:openvsx
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: |
+          if [ -n "$OVSX_PAT" ]; then
+            npx ovsx publish --no-dependencies
+          else
+            npm run publish:openvsx
+          fi

@@ -196,13 +196,15 @@ npx vsce package --no-dependencies
 
 A published GitHub release runs [`.github/workflows/publish.yml`](.github/workflows/publish.yml), which publishes the extension with [trusted publishing](https://github.com/eclipse-openvsx/openvsx/blob/master/cli/README.md#trusted-publishing). No access token is stored in the repo.
 
-One-time setup on [open-vsx.org](https://open-vsx.org):
+Creating the `SeniorTurkmen` namespace makes you a contributor, not an owner. The [Trusted publishers](https://open-vsx.org/user-settings/trusted-publishers) page only lists namespaces you own, so it stays empty until ownership is granted.
 
-1. Sign in with GitHub, link an Eclipse account, and accept the Publisher Agreement.
-2. Create the `SeniorTurkmen` namespace (`npx ovsx create-namespace SeniorTurkmen`).
-3. Add a trusted publisher for this repository: workflow file `publish.yml`, no environment.
+Until then, publish with an access token:
 
-`workflow_dispatch` on that workflow publishes the current `main` version the same way.
+1. Create a token at [Access tokens](https://open-vsx.org/user-settings/tokens).
+2. Add it to this repo as the Actions secret `OVSX_PAT`.
+3. Run **Publish to Open VSX** from the Actions tab. The workflow uses that secret when it is set.
+
+After you [claim the namespace](https://github.com/EclipseFdn/open-vsx.org/issues/new/choose) and Eclipse grants it, the Trusted publishers page lists `SeniorTurkmen`. Add this repository there with workflow file `publish.yml` and no environment, then remove `OVSX_PAT`. Later releases publish with the workflow's OIDC token and no stored secret.
 
 ## Contributing
 
