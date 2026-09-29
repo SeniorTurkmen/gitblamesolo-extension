@@ -5,7 +5,7 @@ import { BlameCache } from '../cache/blameCache';
 import { CommitCache } from '../cache/commitCache';
 import { LineDiffCache } from '../cache/lineDiffCache';
 import { GitBlameSoloConfig } from '../config';
-import { blameLine } from '../git/gitBlame';
+import { blameFile } from '../git/gitBlame';
 import { getLineDiffHunk } from '../git/gitDiff';
 import { getCommitDetails } from '../git/gitLog';
 import { resolveRepository } from '../git/gitRepository';
@@ -67,13 +67,8 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     }
 
     const line = position.line;
-    const blame = await this.deps.blameCache.getOrCompute(document, line, () =>
-      blameLine({
-        filePath: document.uri.fsPath,
-        content: document.getText(),
-        line,
-        repoRoot: repo.rootFsPath,
-      }),
+    const blame = await this.deps.blameCache.getLine(document, line, () =>
+      blameFile({ filePath: document.uri.fsPath, content: document.getText(), repoRoot: repo.rootFsPath }),
     );
 
     if (!blame || token.isCancellationRequested) {

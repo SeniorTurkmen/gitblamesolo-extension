@@ -7,7 +7,7 @@ import { LineDiffCache } from './cache/lineDiffCache';
 import { getConfig, onConfigChanged } from './config';
 import { CurrentLineBlameDecorator } from './decorations/currentLineDecorator';
 import { GitCliError, runGit } from './git/gitCli';
-import { blameLine } from './git/gitBlame';
+import { blameFile } from './git/gitBlame';
 import { getCommitDiff } from './git/gitCommitDiff';
 import { getCommitDetails } from './git/gitLog';
 import { invalidateRepositoryCache, resolveRepository } from './git/gitRepository';
@@ -45,7 +45,22 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.onDidChangeActiveTextEditor((e) => decorator.onDidChangeActiveEditor(e)),
   );
   context.subscriptions.push(
-    vscode.workspace.onDidChangeTextDocument((e) => decorator.onDidChangeDocument(e)),
+    vscode.workspace.onDidChangeTextDocument((e) => {
+      blameCache.applyChanges(e.document, e.contentChanges);
+      decorator.onDidChangeDocument(e);
+    }),
+  );
+  context.subscriptions.push(
+    vscode.workspace.onDidSaveTextDocument((document) => {
+      // Edits only approximate blame (edited lines read as uncommitted); saving re-blames exactly.
+      blameCache.delete(document.uri);
+      if (vscode.window.activeTextEditor?.document === document) {
+        decorator.refreshNow();
+      }
+    }),
+  );
+  context.subscriptions.push(
+    vscode.workspace.onDidCloseTextDocument((document) => blameCache.delete(document.uri)),
   );
   context.subscriptions.push(
     vscode.languages.registerHoverProvider(
@@ -120,8 +135,8 @@ export function activate(context: vscode.ExtensionContext): void {
             void vscode.window.showInformationMessage('Git Blame Solo: this file is not inside a git repository.');
             return;
           }
-          const blame = await blameCache.getOrCompute(document, line, () =>
-            blameLine({ filePath: document.uri.fsPath, content: document.getText(), line, repoRoot: repo.rootFsPath }),
+          const blame = await blameCache.getLine(document, line, () =>
+            blameFile({ filePath: document.uri.fsPath, content: document.getText(), repoRoot: repo.rootFsPath }),
           );
           if (!blame) {
             void vscode.window.showInformationMessage('Git Blame Solo: no blame information for this line.');
@@ -165,8 +180,8 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!repo) {
         return;
       }
-      const blame = await blameCache.getOrCompute(document, line, () =>
-        blameLine({ filePath: document.uri.fsPath, content: document.getText(), line, repoRoot: repo.rootFsPath }),
+      const blame = await blameCache.getLine(document, line, () =>
+        blameFile({ filePath: document.uri.fsPath, content: document.getText(), repoRoot: repo.rootFsPath }),
       );
       if (!blame || blame.isUncommitted) {
         void vscode.window.showInformationMessage('Git Blame Solo: no commit hash to copy for this line.');

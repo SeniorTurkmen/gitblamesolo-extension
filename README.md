@@ -46,7 +46,7 @@ Jane Doe, 3 days ago • Fix race condition in session refresh
 
 - Only the **active line** is annotated, so the rest of your code stays uncluttered.
 - Recomputation is **debounced** (150 ms by default), so scrolling or holding an arrow key doesn't spawn a flood of `git` processes.
-- Results are **cached per document**, so moving back to a line you already visited is instant.
+- The whole file is blamed **once per document** and cached, so moving between lines never runs `git` again. Edits shift the cached result instead of discarding it, and saving re-blames the file.
 - The format is fully customizable through a template. See [`gitBlameSolo.decorationTemplate`](#settings).
 
 ![Inline blame annotation at the end of the current line](docs/images/inline-blame.png)
@@ -147,6 +147,7 @@ For example, to show the short hash first with an absolute date:
 ## Known limitations
 
 - The timestamp shown for uncommitted lines is the file's **last save time on disk** (`mtime`), not the time of each individual keystroke.
+- Between saves, any line you edit reads as uncommitted, even if you change it back to its committed text. Saving the file corrects it.
 - Files larger than `gitBlameSolo.maxFileSizeKB` are skipped.
 - Only local files (`file:` scheme) are supported. Virtual or remote file systems aren't blamed.
 

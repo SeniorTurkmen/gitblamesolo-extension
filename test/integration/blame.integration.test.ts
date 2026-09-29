@@ -4,13 +4,17 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { applyPatchReverse } from '../../src/git/gitApply';
-import { blameLine } from '../../src/git/gitBlame';
+import { blameFile, toBlameInfo } from '../../src/git/gitBlame';
 import { buildHunkPatch, getCommitDiff, isRevertibleHunk } from '../../src/git/gitCommitDiff';
 import { getLineDiffHunk } from '../../src/git/gitDiff';
 import { getCommitDetails } from '../../src/git/gitLog';
 
 function git(repoRoot: string, args: string[]): void {
   execFileSync('git', args, { cwd: repoRoot });
+}
+
+async function blameLine(options: { filePath: string; content: string; line: number; repoRoot: string }) {
+  return toBlameInfo(await blameFile(options), options.line);
 }
 
 describe('git blame integration', () => {

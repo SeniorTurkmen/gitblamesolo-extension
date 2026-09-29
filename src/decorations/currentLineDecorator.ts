@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { BlameCache } from '../cache/blameCache';
 import { GitBlameSoloConfig } from '../config';
-import { blameLine } from '../git/gitBlame';
+import { blameFile } from '../git/gitBlame';
 import { resolveRepository } from '../git/gitRepository';
 import { formatDate, formatDecorationText } from '../util/dateFormat';
 
@@ -89,13 +89,8 @@ export class CurrentLineBlameDecorator implements vscode.Disposable {
     }
 
     const line = editor.selection.active.line;
-    const blame = await this.deps.blameCache.getOrCompute(document, line, () =>
-      blameLine({
-        filePath: document.uri.fsPath,
-        content: document.getText(),
-        line,
-        repoRoot: repo.rootFsPath,
-      }),
+    const blame = await this.deps.blameCache.getLine(document, line, () =>
+      blameFile({ filePath: document.uri.fsPath, content: document.getText(), repoRoot: repo.rootFsPath }),
     );
 
     if (myGeneration !== this.generation) {
