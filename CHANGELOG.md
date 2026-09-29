@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A copy button next to the commit hash in the hover and the commit details panel copies the full hash.
 - Added **Git Blame Solo: Change Setting…**, which lists every setting with its current value and changes or resets the one you pick, without opening the Settings editor.
 - The author's email is shown next to their name in the hover. Turn it off with **Git Blame Solo: Hide Author Email** or `gitBlameSolo.showAuthorEmail`. The inline annotation and status bar stay name-only.
 - **Behavior change:** the blame hover now opens only over the inline annotation at the end of the current line, not anywhere on any line. Set `gitBlameSolo.hover.trigger` to `"line"` to restore the previous behavior.

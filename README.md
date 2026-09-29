@@ -66,7 +66,7 @@ Hover the inline annotation at the end of the current line to open a popup conta
 
 | Section | What you see |
 | --- | --- |
-| **Header** | Commit subject, author (with email), absolute date, and short hash |
+| **Header** | Commit subject, author (with email), absolute date, and short hash with a button that copies the full hash |
 | **Body** | The full commit message body, if there is one |
 | **What changed** | A colored `diff` of the **entire changed block** the line belongs to (every contiguous line changed in the same hunk, not only the hovered line), with an added/removed line count |
 | **Actions** | **Open in Diff Editor**, **View changed files (N files)**, and **Open on GitHub** (or GitLab, Bitbucket, Azure DevOps) when the repository has a remote |
@@ -87,7 +87,7 @@ By default the popup only opens over the annotation, so hovering your code for o
 
 **View changed files** in the hover (or the **Git Blame Solo: Show Commit Details** command) opens a panel with the whole commit:
 
-- The commit message, author, date, and hash at the top.
+- The commit message, author, date, and hash at the top. The button next to the hash copies it.
 - **Every file the commit touched**, each with its **full colored diff**. Added and removed lines are clearly marked.
 - Click a **file header** to open that file in the editor.
 - The **Open Diff** button opens that file's change in the native diff editor.

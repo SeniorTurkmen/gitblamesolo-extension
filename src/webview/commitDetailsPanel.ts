@@ -12,7 +12,14 @@ type WebviewMessage =
   | { type: 'openSource' }
   | { type: 'openDiff'; path: string; oldPath?: string }
   | { type: 'openRemote' }
+  | { type: 'copySha' }
   | { type: 'revertHunk'; path: string; hunkIndex: number };
+
+// Codicons "copy" and "check" (CC BY 4.0), inlined because webviews don't load the icon font.
+const COPY_ICON =
+  '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M4 4l1-1h5.414L14 6.586V14l-1 1H5l-1-1V4zm9 3l-3-3H5v10h8V7z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M3 1L2 2v10l1 1V2h6.414l-1-1H3z"/></svg>';
+const CHECK_ICON =
+  '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M14.431 3.323l-8.47 10-.79-.036-3.35-4.77.818-.574 2.978 4.24 8.051-9.506.764.646z"/></svg>';
 
 const STATUS_LABELS: Record<FileChangeStatus, string> = {
   A: 'Added',
@@ -112,6 +119,10 @@ export class CommitDetailsPanel {
         message.path,
         message.oldPath,
       );
+      return;
+    }
+    if (message.type === 'copySha') {
+      await vscode.commands.executeCommand('gitBlameSolo.copyCommitHash', this.commitSha);
       return;
     }
     if (message.type === 'openRemote') {
@@ -232,6 +243,24 @@ export class CommitDetailsPanel {
     }
     .hash {
       font-family: var(--vscode-editor-font-family, monospace);
+    }
+    .copy-sha-btn {
+      display: inline-flex;
+      align-items: center;
+      vertical-align: middle;
+      padding: 2px;
+      margin-left: 0.25rem;
+      border: none;
+      border-radius: 3px;
+      background: transparent;
+      color: var(--vscode-icon-foreground, currentColor);
+      cursor: pointer;
+    }
+    .copy-sha-btn:hover {
+      background: var(--vscode-toolbar-hoverBackground);
+    }
+    .copy-sha-btn.copied {
+      color: var(--vscode-testing-iconPassed, currentColor);
     }
     .remote-btn {
       margin-left: 0.5rem;
@@ -393,6 +422,7 @@ export class CommitDetailsPanel {
     ${escapeHtml(commit.authorName)} &lt;${escapeHtml(commit.authorEmail)}&gt; &bull;
     ${escapeHtml(formatDate(commit.authorTimestamp, 'absolute'))} &bull;
     <span class="hash">${escapeHtml(commit.sha)}</span>
+    <button class="copy-sha-btn" title="Copy commit SHA" aria-label="Copy commit SHA">${COPY_ICON}</button>
     ${
       this.remoteLink
         ? `<button class="diff-editor-btn remote-btn" title="${escapeHtml(this.remoteLink.url)}">Open on ${escapeHtml(this.remoteLink.provider)}</button>`
@@ -413,6 +443,19 @@ export class CommitDetailsPanel {
       el.addEventListener('click', (e) => {
         e.stopPropagation();
         vscode.postMessage({ type: 'openSource' });
+      });
+    });
+    document.querySelectorAll('.copy-sha-btn').forEach((el) => {
+      el.addEventListener('click', () => {
+        vscode.postMessage({ type: 'copySha' });
+        el.innerHTML = ${JSON.stringify(CHECK_ICON)};
+        el.classList.add('copied');
+        el.title = 'Copied';
+        setTimeout(() => {
+          el.innerHTML = ${JSON.stringify(COPY_ICON)};
+          el.classList.remove('copied');
+          el.title = 'Copy commit SHA';
+        }, 1500);
       });
     });
     document.querySelectorAll('.remote-btn').forEach((el) => {

@@ -30,6 +30,12 @@ function buildOpenDiffCommandUri(sha: string, repoRoot: string, relativePath: st
   return `command:gitBlameSolo.openDiff?${args}`;
 }
 
+/** The short SHA with a button that copies the full one. */
+function appendSha(md: vscode.MarkdownString, sha: string): void {
+  const copyUri = `command:gitBlameSolo.copyCommitHash?${encodeURIComponent(JSON.stringify([sha]))}`;
+  md.appendMarkdown(`\`${sha.slice(0, 7)}\` [$(copy)](${copyUri} "Copy commit SHA")`);
+}
+
 /** Keeps "<email>" literal instead of letting Markdown turn it into an autolink. */
 function escapeAngleBrackets(text: string): string {
   return text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -38,7 +44,9 @@ function escapeAngleBrackets(text: string): string {
 function newMarkdown(): vscode.MarkdownString {
   const md = new vscode.MarkdownString();
   md.supportThemeIcons = true;
-  md.isTrusted = { enabledCommands: ['gitBlameSolo.showCommitDetails', 'gitBlameSolo.openDiff'] };
+  md.isTrusted = {
+    enabledCommands: ['gitBlameSolo.showCommitDetails', 'gitBlameSolo.openDiff', 'gitBlameSolo.copyCommitHash'],
+  };
   return md;
 }
 
@@ -145,7 +153,7 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       md.appendMarkdown(
         `$(account) ${escapeAngleBrackets(formatAuthor(blame.authorName, blame.authorEmail, config.showAuthorEmail))} &nbsp;&nbsp; $(clock) ${formatDate(blame.authorTimestamp, 'absolute')}\n\n`,
       );
-      md.appendMarkdown(`\`${blame.sha.slice(0, 7)}\``);
+      appendSha(md, blame.sha);
       this.appendDiff(md, diffHunk, blame.sha, repo.rootFsPath, document.uri.fsPath);
       return new vscode.Hover(md, range);
     }
@@ -158,7 +166,7 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     if (commit.body) {
       md.appendMarkdown(`${commit.body}\n\n`);
     }
-    md.appendMarkdown(`\`${commit.sha.slice(0, 7)}\``);
+    appendSha(md, commit.sha);
     this.appendDiff(md, diffHunk, commit.sha, repo.rootFsPath, document.uri.fsPath);
 
     md.appendMarkdown('\n\n---\n\n');

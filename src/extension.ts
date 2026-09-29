@@ -250,13 +250,17 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('gitBlameSolo.copyCommitHash', async () => {
-      const target = await blameAtCursor();
-      if (!target) {
-        return;
+    vscode.commands.registerCommand('gitBlameSolo.copyCommitHash', async (shaArg?: string) => {
+      let sha = shaArg;
+      if (!sha) {
+        const target = await blameAtCursor();
+        if (!target) {
+          return;
+        }
+        sha = target.blame.sha;
       }
-      await vscode.env.clipboard.writeText(target.blame.sha);
-      void vscode.window.showInformationMessage(`Copied ${target.blame.sha.slice(0, 7)} to clipboard.`);
+      await vscode.env.clipboard.writeText(sha);
+      void vscode.window.setStatusBarMessage(`$(check) Copied ${sha.slice(0, 7)} to clipboard`, 3000);
     }),
   );
 
