@@ -4,13 +4,22 @@ import { applyPatchReverse } from '../git/gitApply';
 import { GitCliError } from '../git/gitCli';
 import { buildHunkPatch, isRevertibleHunk } from '../git/gitCommitDiff';
 import { CommitDetails, CommitFileChange, DiffHunk, DiffLine, FileChangeStatus, FileDiff, SourceLocation } from '../types';
+import { RemoteCommitLink } from '../git/gitRemote';
 import { formatDate } from '../util/dateFormat';
 
 type WebviewMessage =
   | { type: 'openFile'; path: string }
   | { type: 'openSource' }
   | { type: 'openDiff'; path: string; oldPath?: string }
+  | { type: 'openRemote' }
+  | { type: 'copySha' }
   | { type: 'revertHunk'; path: string; hunkIndex: number };
+
+// Codicons "copy" and "check" (CC BY 4.0), inlined because webviews don't load the icon font.
+const COPY_ICON =
+  '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M4 4l1-1h5.414L14 6.586V14l-1 1H5l-1-1V4zm9 3l-3-3H5v10h8V7z"/><path fill-rule="evenodd" clip-rule="evenodd" d="M3 1L2 2v10l1 1V2h6.414l-1-1H3z"/></svg>';
+const CHECK_ICON =
+  '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M14.431 3.323l-8.47 10-.79-.036-3.35-4.77.818-.574 2.978 4.24 8.051-9.506.764.646z"/></svg>';
 
 const STATUS_LABELS: Record<FileChangeStatus, string> = {
   A: 'Added',
@@ -31,11 +40,18 @@ export class CommitDetailsPanel {
   private repoRoot: string;
   private commitSha = '';
   private source: SourceLocation | undefined;
+  private remoteLink: RemoteCommitLink | undefined;
   private diffs: FileDiff[] = [];
 
-  static show(commit: CommitDetails, diffs: FileDiff[], repoRoot: string, source?: SourceLocation): void {
+  static show(
+    commit: CommitDetails,
+    diffs: FileDiff[],
+    repoRoot: string,
+    source?: SourceLocation,
+    remoteLink?: RemoteCommitLink,
+  ): void {
     if (CommitDetailsPanel.current) {
-      CommitDetailsPanel.current.update(commit, diffs, repoRoot, source);
+      CommitDetailsPanel.current.update(commit, diffs, repoRoot, source, remoteLink);
       CommitDetailsPanel.current.panel.reveal(vscode.ViewColumn.Beside);
       return;
     }
@@ -46,7 +62,7 @@ export class CommitDetailsPanel {
       vscode.ViewColumn.Beside,
       { enableScripts: true, retainContextWhenHidden: true },
     );
-    CommitDetailsPanel.current = new CommitDetailsPanel(panel, commit, diffs, repoRoot, source);
+    CommitDetailsPanel.current = new CommitDetailsPanel(panel, commit, diffs, repoRoot, source, remoteLink);
   }
 
   private constructor(
@@ -55,6 +71,7 @@ export class CommitDetailsPanel {
     diffs: FileDiff[],
     repoRoot: string,
     source: SourceLocation | undefined,
+    remoteLink: RemoteCommitLink | undefined,
   ) {
     this.panel = panel;
     this.repoRoot = repoRoot;
@@ -66,13 +83,20 @@ export class CommitDetailsPanel {
       this.disposables,
     );
 
-    this.update(commit, diffs, repoRoot, source);
+    this.update(commit, diffs, repoRoot, source, remoteLink);
   }
 
-  private update(commit: CommitDetails, diffs: FileDiff[], repoRoot: string, source: SourceLocation | undefined): void {
+  private update(
+    commit: CommitDetails,
+    diffs: FileDiff[],
+    repoRoot: string,
+    source: SourceLocation | undefined,
+    remoteLink: RemoteCommitLink | undefined,
+  ): void {
     this.repoRoot = repoRoot;
     this.commitSha = commit.sha;
     this.source = source;
+    this.remoteLink = remoteLink;
     this.diffs = diffs;
     this.panel.title = `Commit ${commit.sha.slice(0, 7)}`;
     this.panel.webview.html = this.renderHtml(commit, diffs);
@@ -97,6 +121,16 @@ export class CommitDetailsPanel {
       );
       return;
     }
+    if (message.type === 'copySha') {
+      await vscode.commands.executeCommand('gitBlameSolo.copyCommitHash', this.commitSha);
+      return;
+    }
+    if (message.type === 'openRemote') {
+      if (this.remoteLink) {
+        await vscode.env.openExternal(vscode.Uri.parse(this.remoteLink.url));
+      }
+      return;
+    }
     if (message.type === 'revertHunk') {
       await this.revertHunk(message.path, message.hunkIndex);
     }
@@ -117,7 +151,7 @@ export class CommitDetailsPanel {
       return;
     }
     try {
-      const document = await vscode.workspace.openTextDocument(this.source.filePath);
+      const document = await vscode.workspace.openTextDocument(vscode.Uri.parse(this.source.uri));
       const editor = await vscode.window.showTextDocument(document, { preview: true });
       const position = new vscode.Position(this.source.line, 0);
       editor.selection = new vscode.Selection(position, position);
@@ -209,6 +243,27 @@ export class CommitDetailsPanel {
     }
     .hash {
       font-family: var(--vscode-editor-font-family, monospace);
+    }
+    .copy-sha-btn {
+      display: inline-flex;
+      align-items: center;
+      vertical-align: middle;
+      padding: 2px;
+      margin-left: 0.25rem;
+      border: none;
+      border-radius: 3px;
+      background: transparent;
+      color: var(--vscode-icon-foreground, currentColor);
+      cursor: pointer;
+    }
+    .copy-sha-btn:hover {
+      background: var(--vscode-toolbar-hoverBackground);
+    }
+    .copy-sha-btn.copied {
+      color: var(--vscode-testing-iconPassed, currentColor);
+    }
+    .remote-btn {
+      margin-left: 0.5rem;
     }
     .body {
       white-space: pre-wrap;
@@ -367,6 +422,12 @@ export class CommitDetailsPanel {
     ${escapeHtml(commit.authorName)} &lt;${escapeHtml(commit.authorEmail)}&gt; &bull;
     ${escapeHtml(formatDate(commit.authorTimestamp, 'absolute'))} &bull;
     <span class="hash">${escapeHtml(commit.sha)}</span>
+    <button class="copy-sha-btn" title="Copy commit SHA" aria-label="Copy commit SHA">${COPY_ICON}</button>
+    ${
+      this.remoteLink
+        ? `<button class="diff-editor-btn remote-btn" title="${escapeHtml(this.remoteLink.url)}">Open on ${escapeHtml(this.remoteLink.provider)}</button>`
+        : ''
+    }
   </div>
   ${commit.body ? `<div class="body">${escapeHtml(commit.body)}</div>` : ''}
   <h3>Changed files (${commit.files.length})</h3>
@@ -384,7 +445,23 @@ export class CommitDetailsPanel {
         vscode.postMessage({ type: 'openSource' });
       });
     });
-    document.querySelectorAll('.diff-editor-btn').forEach((el) => {
+    document.querySelectorAll('.copy-sha-btn').forEach((el) => {
+      el.addEventListener('click', () => {
+        vscode.postMessage({ type: 'copySha' });
+        el.innerHTML = ${JSON.stringify(CHECK_ICON)};
+        el.classList.add('copied');
+        el.title = 'Copied';
+        setTimeout(() => {
+          el.innerHTML = ${JSON.stringify(COPY_ICON)};
+          el.classList.remove('copied');
+          el.title = 'Copy commit SHA';
+        }, 1500);
+      });
+    });
+    document.querySelectorAll('.remote-btn').forEach((el) => {
+      el.addEventListener('click', () => vscode.postMessage({ type: 'openRemote' }));
+    });
+    document.querySelectorAll('.diff-editor-btn:not(.remote-btn)').forEach((el) => {
       el.addEventListener('click', (e) => {
         e.stopPropagation();
         vscode.postMessage({
@@ -447,8 +524,7 @@ export class CommitDetailsPanel {
     if (!this.source) {
       return undefined;
     }
-    const relativeSourcePath = path.relative(this.repoRoot, this.source.filePath).split(path.sep).join('/');
-    return relativeSourcePath === filePath ? this.source.commitLine : undefined;
+    return this.source.commitPath === filePath ? this.source.commitLine : undefined;
   }
 
   private renderDiffBody(filePath: string, diff: FileDiff | undefined, matchCommitLine: number | undefined): string {

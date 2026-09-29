@@ -2,7 +2,7 @@
   "name": "gitblamesolo",
   "displayName": "Git Blame Solo",
   "description": "Shows who changed the current line, when, and with which commit — inline and on hover.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "SeniorTurkmen",
   "license": "MIT",
   "private": true,
@@ -69,6 +69,19 @@
           "default": true,
           "description": "Show full commit details on hover."
         },
+        "gitBlameSolo.hover.trigger": {
+          "type": "string",
+          "enum": [
+            "annotation",
+            "line"
+          ],
+          "enumDescriptions": [
+            "Show the hover only when the mouse is over the inline annotation at the end of the current line. Requires gitBlameSolo.enabled.",
+            "Show the hover when the mouse is anywhere over any line."
+          ],
+          "default": "annotation",
+          "description": "Where the mouse must be to show the blame hover."
+        },
         "gitBlameSolo.maxFileSizeKB": {
           "type": "number",
           "default": 5000,
@@ -78,10 +91,67 @@
           "type": "string",
           "default": "Uncommitted changes",
           "description": "Label shown for lines that have not been committed yet."
+        },
+        "gitBlameSolo.currentUserLabel": {
+          "type": "string",
+          "default": "You",
+          "description": "Shown instead of the author's name in the inline annotation and status bar when the author's email matches your git user.email. Leave empty to always show the name."
+        },
+        "gitBlameSolo.showAuthorEmail": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the author's email next to their name in the hover. The inline annotation and status bar never show it; the commit details panel always does."
+        },
+        "gitBlameSolo.statusBar.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show blame for the current line in the status bar. Clicking it opens the commit details."
+        },
+        "gitBlameSolo.statusBar.template": {
+          "type": "string",
+          "default": "${author}, ${date}",
+          "description": "Template for the status bar item. Placeholders: ${author} ${date} ${message} ${hash}"
+        },
+        "gitBlameSolo.ignoreWhitespace": {
+          "type": "boolean",
+          "default": false,
+          "description": "Ignore whitespace-only changes when finding the commit that last changed a line (git blame -w)."
+        },
+        "gitBlameSolo.detectMovedLines": {
+          "type": "string",
+          "enum": [
+            "off",
+            "withinFile",
+            "acrossFiles"
+          ],
+          "enumDescriptions": [
+            "Attribute moved lines to the commit that moved them.",
+            "Follow lines moved or copied within the same file (git blame -M).",
+            "Also follow lines moved or copied from other files in the same commit (git blame -C). Slower on large repositories."
+          ],
+          "default": "off",
+          "description": "Attribute moved or copied lines to the commit that originally wrote them."
+        },
+        "gitBlameSolo.ignoreRevsFile": {
+          "type": "string",
+          "default": ".git-blame-ignore-revs",
+          "description": "File at the repository root listing commits to skip in blame, such as bulk reformatting (git blame --ignore-revs-file). Ignored when the file doesn't exist. Leave empty to disable."
+        },
+        "gitBlameSolo.exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Glob patterns for files that get no inline annotation, status bar entry, or hover, for example \"**/*.min.js\"."
         }
       }
     },
     "commands": [
+      {
+        "command": "gitBlameSolo.changeSetting",
+        "title": "Git Blame Solo: Change Setting…"
+      },
       {
         "command": "gitBlameSolo.toggle",
         "title": "Git Blame Solo: Toggle Inline Blame"
@@ -93,6 +163,26 @@
       {
         "command": "gitBlameSolo.copyCommitHash",
         "title": "Git Blame Solo: Copy Commit Hash"
+      },
+      {
+        "command": "gitBlameSolo.openCommitOnRemote",
+        "title": "Git Blame Solo: Open Commit on Remote"
+      },
+      {
+        "command": "gitBlameSolo.blamePreviousRevision",
+        "title": "Git Blame Solo: Blame Previous Revision"
+      },
+      {
+        "command": "gitBlameSolo.refresh",
+        "title": "Git Blame Solo: Refresh"
+      },
+      {
+        "command": "gitBlameSolo.showAuthorEmail",
+        "title": "Git Blame Solo: Show Author Email"
+      },
+      {
+        "command": "gitBlameSolo.hideAuthorEmail",
+        "title": "Git Blame Solo: Hide Author Email"
       }
     ],
     "menus": {
@@ -100,6 +190,16 @@
         {
           "command": "gitBlameSolo.showCommitDetails",
           "group": "9_gitBlameSolo"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "gitBlameSolo.showAuthorEmail",
+          "when": "!config.gitBlameSolo.showAuthorEmail"
+        },
+        {
+          "command": "gitBlameSolo.hideAuthorEmail",
+          "when": "config.gitBlameSolo.showAuthorEmail"
         }
       ]
     }
@@ -113,7 +213,7 @@
     "compile-tests": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint src test --ext ts",
-    "test:unit": "mocha --require ts-node/register/transpile-only 'test/unit/**/*.test.ts'",
+    "test:unit": "mocha --require ts-node/register/transpile-only \"test/unit/**/*.test.ts\"",
     "pretest": "npm run compile && npm run compile-tests && npm run typecheck && npm run lint",
     "test": "vscode-test"
   },
@@ -123,8 +223,8 @@
     "@types/vscode": "^1.90.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
-    "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.4.0",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "^3.0.0",
     "esbuild": "^0.23.0",
     "eslint": "^8.57.0",

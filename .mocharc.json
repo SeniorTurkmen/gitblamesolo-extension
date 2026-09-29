@@ -1,5 +1,6 @@
 {
   "extension": ["ts"],
+  "node-option": ["no-experimental-strip-types"],
   "spec": "test/unit/**/*.test.ts",
   "timeout": 5000
 }

@@ -1,0 +1,56 @@
+// `git blame --incremental` for a 5-line buffer: lines 1-2 and 5 from one commit
+// (metadata only on its first group), line 3 from another, line 4 not committed yet.
+export const INCREMENTAL_BLAME_OUTPUT = [
+  '0000000000000000000000000000000000000000 4 4 1',
+  'author External file (--contents)',
+  'author-mail <external.file>',
+  'author-time 1700003600',
+  'author-tz +0000',
+  'committer External file (--contents)',
+  'committer-mail <external.file>',
+  'committer-time 1700003600',
+  'committer-tz +0000',
+  'summary Version of src/engine.ts from standard input',
+  'previous bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb src/engine.ts',
+  'filename src/engine.ts',
+  'abcdef1234567890abcdef1234567890abcdef12 1 1 2',
+  'author Ada Lovelace',
+  'author-mail <ada@example.com>',
+  'author-time 1700000000',
+  'author-tz +0000',
+  'committer Ada Lovelace',
+  'committer-mail <ada@example.com>',
+  'committer-time 1700000000',
+  'committer-tz +0000',
+  'summary Add initial calculation engine',
+  'boundary',
+  'filename src/engine.ts',
+  'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 7 3 1',
+  'author Grace Hopper',
+  'author-mail <grace@example.com>',
+  'author-time 1700001000',
+  'author-tz +0000',
+  'committer Grace Hopper',
+  'committer-mail <grace@example.com>',
+  'committer-time 1700001000',
+  'committer-tz +0000',
+  'summary Handle overflow',
+  'previous abcdef1234567890abcdef1234567890abcdef12 src/engine.ts',
+  'filename src/engine.ts',
+  'abcdef1234567890abcdef1234567890abcdef12 4 5 1',
+  'filename src/engine.ts',
+  '',
+].join('\n');
+
+export const COMMIT_SHOW_OUTPUT =
+  [
+    'abcdef1234567890abcdef1234567890abcdef12',
+    'Ada Lovelace',
+    'ada@example.com',
+    '1700000000',
+    '1700000100',
+    'Add initial calculation engine',
+    'This introduces the first version of the calculation engine.\nIt supports add and subtract.',
+  ].join('\x1f') +
+  '\x1e\n\n' +
+  ['M\tsrc/engine.ts', 'A\tsrc/engine.test.ts', 'R100\told/path.ts\tnew/path.ts', ''].join('\n');

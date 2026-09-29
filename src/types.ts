@@ -10,6 +10,10 @@ export interface BlameInfo {
   line: number;
   /** 0-based line number within the blamed commit's own version of the file. */
   originalLine: number;
+  /** Path of the file in the blamed commit, relative to the repository root. */
+  filename: string;
+  /** The commit and path the line had before this commit changed it; absent when the commit created it. */
+  previous?: { sha: string; filename: string };
 }
 
 export type FileChangeStatus = 'A' | 'M' | 'D' | 'R' | 'C' | 'T' | 'U' | 'X';
@@ -59,7 +63,10 @@ export interface CommitDetails {
 
 /** Where the "Show Commit Details" panel was opened from, so it can mark and jump back to it. */
 export interface SourceLocation {
-  filePath: string;
+  /** The document the commit was opened from: a file on disk or a past revision of one. */
+  uri: string;
+  /** Path of the file in the commit, relative to the repository root; differs from the current path after a rename. */
+  commitPath: string;
   /** 0-based line in the CURRENT buffer; used as the jump-back target. */
   line: number;
   /** 1-based line number in the commit's own version of the file; used to find the matching diff row. */

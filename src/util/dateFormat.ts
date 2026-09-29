@@ -26,6 +26,24 @@ export function formatDate(unixSeconds: number, style: DateStyle, locale = 'en-U
   return rtf.format(deltaSeconds, 'second');
 }
 
+/**
+ * Git keeps no time for uncommitted lines, so the only honest time is when the
+ * file was last saved, and only while it has no unsaved changes: with a dirty
+ * buffer the line may have been typed a second ago in a file saved weeks ago.
+ */
+export function formatUncommittedText(
+  label: string,
+  savedAtSeconds: number | undefined,
+  dateStyle: DateStyle,
+  locale = 'en-US',
+  now = Date.now(),
+): string {
+  if (savedAtSeconds === undefined) {
+    return `${label} (file not saved)`;
+  }
+  return `${label}, file saved ${formatDate(savedAtSeconds, dateStyle, locale, now)}`;
+}
+
 export interface DecorationTemplateData {
   author: string;
   authorTimestamp: number;

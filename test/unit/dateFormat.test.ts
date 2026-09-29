@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { formatDate, formatDecorationText } from '../../src/util/dateFormat';
+import { formatDate, formatDecorationText, formatUncommittedText } from '../../src/util/dateFormat';
 
 describe('formatDate', () => {
   const now = new Date('2024-01-10T12:00:00Z').getTime();
@@ -25,5 +25,24 @@ describe('formatDecorationText', () => {
       'absolute',
     );
     assert.strictEqual(text, 'Ada - Initial commit (abcdef1)');
+  });
+});
+
+describe('formatUncommittedText', () => {
+  const now = Date.UTC(2026, 8, 29, 12, 0, 0);
+
+  it('says the file is not saved when there is no save time to trust', () => {
+    assert.strictEqual(
+      formatUncommittedText('Uncommitted changes', undefined, 'relative', 'en-US', now),
+      'Uncommitted changes (file not saved)',
+    );
+  });
+
+  it('labels the time as the file save time', () => {
+    const twelveDaysAgo = now / 1000 - 12 * 24 * 60 * 60;
+    assert.strictEqual(
+      formatUncommittedText('Uncommitted changes', twelveDaysAgo, 'relative', 'en-US', now),
+      'Uncommitted changes, file saved 12 days ago',
+    );
   });
 });

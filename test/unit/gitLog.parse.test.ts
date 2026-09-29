@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { parseCommitDetails } from '../../src/git/gitLog';
-import { COMMIT_SHOW_OUTPUT } from '../fixtures/porcelain-samples';
+import { COMMIT_SHOW_OUTPUT } from '../fixtures/git-samples';
 
 describe('parseCommitDetails', () => {
   it('parses fields separated by the unit separator', () => {

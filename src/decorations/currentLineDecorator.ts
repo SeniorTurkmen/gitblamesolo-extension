@@ -1,18 +1,21 @@
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { BlameCache } from '../cache/blameCache';
-import { GitBlameSoloConfig } from '../config';
-import { blameLine } from '../git/gitBlame';
-import { resolveRepository } from '../git/gitRepository';
-import { formatDate, formatDecorationText } from '../util/dateFormat';
+import { GitBlameSoloConfig, isExcluded } from '../config';
+import { BLAMEABLE_SCHEMES, blameTarget, resolveBlameTarget } from '../git/blameTarget';
+import { getCurrentUserEmail } from '../git/gitRemote';
+import { BlameInfo } from '../types';
+import { formatDecorationText, formatUncommittedText } from '../util/dateFormat';
 
 export interface CurrentLineDecoratorDeps {
   blameCache: BlameCache;
   getConfig: () => GitBlameSoloConfig;
 }
 
+/** Shows blame for the active line as an end-of-line annotation and/or a status bar item. */
 export class CurrentLineBlameDecorator implements vscode.Disposable {
   private readonly decorationType: vscode.TextEditorDecorationType;
+  private readonly statusBarItem: vscode.StatusBarItem;
   private readonly deps: CurrentLineDecoratorDeps;
   private timer: NodeJS.Timeout | undefined;
   private generation = 0;
@@ -23,6 +26,8 @@ export class CurrentLineBlameDecorator implements vscode.Disposable {
       isWholeLine: false,
       rangeBehavior: vscode.DecorationRangeBehavior.ClosedOpen,
     });
+    this.statusBarItem = vscode.window.createStatusBarItem('gitBlameSolo.statusBar', vscode.StatusBarAlignment.Left, 100);
+    this.statusBarItem.name = 'Git Blame Solo';
   }
 
   onDidChangeSelection(e: vscode.TextEditorSelectionChangeEvent): void {
@@ -32,6 +37,9 @@ export class CurrentLineBlameDecorator implements vscode.Disposable {
   onDidChangeActiveEditor(editor: vscode.TextEditor | undefined): void {
     if (editor) {
       this.update(editor);
+    } else {
+      this.generation++;
+      this.statusBarItem.hide();
     }
   }
 
@@ -46,6 +54,8 @@ export class CurrentLineBlameDecorator implements vscode.Disposable {
     const editor = vscode.window.activeTextEditor;
     if (editor) {
       this.update(editor);
+    } else {
+      this.statusBarItem.hide();
     }
   }
 
@@ -54,6 +64,7 @@ export class CurrentLineBlameDecorator implements vscode.Disposable {
       clearTimeout(this.timer);
     }
     this.decorationType.dispose();
+    this.statusBarItem.dispose();
   }
 
   private schedule(editor: vscode.TextEditor): void {
@@ -64,84 +75,105 @@ export class CurrentLineBlameDecorator implements vscode.Disposable {
     this.timer = setTimeout(() => this.update(editor), debounceMs);
   }
 
+  private clear(editor: vscode.TextEditor): void {
+    editor.setDecorations(this.decorationType, []);
+    this.statusBarItem.hide();
+  }
+
   private async update(editor: vscode.TextEditor): Promise<void> {
     const config = this.deps.getConfig();
     const myGeneration = ++this.generation;
     const document = editor.document;
 
-    if (!config.enabled || document.uri.scheme !== 'file') {
-      editor.setDecorations(this.decorationType, []);
+    if (
+      (!config.enabled && !config.statusBarEnabled) ||
+      !BLAMEABLE_SCHEMES.includes(document.uri.scheme) ||
+      document.getText().length > config.maxFileSizeBytes ||
+      isExcluded(document, config)
+    ) {
+      this.clear(editor);
       return;
     }
 
-    if (document.getText().length > config.maxFileSizeBytes) {
-      editor.setDecorations(this.decorationType, []);
-      return;
-    }
-
-    const repo = await resolveRepository(document.uri);
+    const target = await resolveBlameTarget(document.uri);
     if (myGeneration !== this.generation) {
       return;
     }
-    if (!repo) {
-      editor.setDecorations(this.decorationType, []);
+    if (!target) {
+      this.clear(editor);
       return;
     }
 
     const line = editor.selection.active.line;
-    const blame = await this.deps.blameCache.getOrCompute(document, line, () =>
-      blameLine({
-        filePath: document.uri.fsPath,
-        content: document.getText(),
-        line,
-        repoRoot: repo.rootFsPath,
-      }),
+    const blame = await this.deps.blameCache.getLine(document, line, () =>
+      blameTarget(target, document, config.blameOptions),
     );
-
     if (myGeneration !== this.generation) {
       return;
     }
-
     if (!blame) {
-      editor.setDecorations(this.decorationType, []);
+      this.clear(editor);
       return;
     }
 
-    let label: string;
+    let inlineLabel: string;
+    let statusLabel: string;
     if (blame.isUncommitted) {
-      const mtimeSeconds = await this.getMtimeSeconds(document.uri.fsPath);
+      // A past revision has no save time; only a clean file on disk does.
+      const savedAt =
+        document.isDirty || document.uri.scheme !== 'file' ? undefined : await this.getMtimeSeconds(document.uri.fsPath);
       if (myGeneration !== this.generation) {
         return;
       }
-      const timeText = formatDate(mtimeSeconds, config.dateStyle);
-      label = `${config.uncommittedLabel}, ${timeText}`;
+      inlineLabel = formatUncommittedText(config.uncommittedLabel, savedAt, config.dateStyle);
+      statusLabel = config.uncommittedLabel;
     } else {
-      label = formatDecorationText(
-        {
-          author: blame.authorName,
-          authorTimestamp: blame.authorTimestamp,
-          summary: blame.summary,
-          sha: blame.sha,
-        },
-        config.decorationTemplate,
-        config.dateStyle,
-      );
+      const author = await this.authorLabel(blame, target.repoRoot, config);
+      if (myGeneration !== this.generation) {
+        return;
+      }
+      const data = { author, authorTimestamp: blame.authorTimestamp, summary: blame.summary, sha: blame.sha };
+      inlineLabel = formatDecorationText(data, config.decorationTemplate, config.dateStyle);
+      statusLabel = formatDecorationText(data, config.statusBarTemplate, config.dateStyle);
     }
 
-    const endOfLine = document.lineAt(line).range.end;
-    editor.setDecorations(this.decorationType, [
-      {
-        range: new vscode.Range(endOfLine, endOfLine),
-        renderOptions: {
-          after: {
-            contentText: `   ${label}`,
-            color: config.decorationColor ?? new vscode.ThemeColor('editorCodeLens.foreground'),
-            fontStyle: 'italic',
-            margin: '0 0 0 1em',
+    if (config.enabled) {
+      const endOfLine = document.lineAt(line).range.end;
+      editor.setDecorations(this.decorationType, [
+        {
+          range: new vscode.Range(endOfLine, endOfLine),
+          renderOptions: {
+            after: {
+              contentText: `   ${inlineLabel}`,
+              color: config.decorationColor ?? new vscode.ThemeColor('editorCodeLens.foreground'),
+              fontStyle: 'italic',
+              margin: '0 0 0 1em',
+            },
           },
         },
-      },
-    ]);
+      ]);
+    } else {
+      editor.setDecorations(this.decorationType, []);
+    }
+
+    if (config.statusBarEnabled) {
+      this.statusBarItem.text = `$(git-commit) ${escapeStatusBarText(statusLabel)}`;
+      this.statusBarItem.tooltip = blame.isUncommitted
+        ? undefined
+        : `${blame.summary}\n${blame.authorName} • ${blame.sha.slice(0, 7)}\n\nClick to show commit details`;
+      this.statusBarItem.command = blame.isUncommitted ? undefined : 'gitBlameSolo.showCommitDetails';
+      this.statusBarItem.show();
+    } else {
+      this.statusBarItem.hide();
+    }
+  }
+
+  private async authorLabel(blame: BlameInfo, repoRoot: string, config: GitBlameSoloConfig): Promise<string> {
+    if (!config.currentUserLabel) {
+      return blame.authorName;
+    }
+    const email = await getCurrentUserEmail(repoRoot);
+    return email && email.toLowerCase() === blame.authorEmail.toLowerCase() ? config.currentUserLabel : blame.authorName;
   }
 
   private async getMtimeSeconds(fsPath: string): Promise<number> {
@@ -152,4 +184,9 @@ export class CurrentLineBlameDecorator implements vscode.Disposable {
       return Math.floor(Date.now() / 1000);
     }
   }
+}
+
+/** Keeps "$(...)" in commit messages from being rendered as icons. */
+function escapeStatusBarText(text: string): string {
+  return text.replace(/\$\(/g, '$​(');
 }
