@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.2
 
 - The hover and the commit details panel link to the pull request a commit came from, when its message names one: GitHub merge and squash commits ("(#123)"), GitLab "See merge request", Bitbucket "(pull request #N)", and Azure DevOps "Merged PR N:". Other hosts get no pull request link.
 - Co-authors from `Co-authored-by:` trailers are listed in the hover (emails follow `gitBlameSolo.showAuthorEmail`) and in the commit details panel. The trailers are no longer repeated in the message body.
