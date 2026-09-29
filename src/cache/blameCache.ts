@@ -26,7 +26,8 @@ const MAX_DOCUMENTS = 50;
  * spawns git. Edits shift the existing result instead of discarding it: lines
  * outside the edit keep their blame and edited lines read as uncommitted. That
  * is slightly pessimistic (an edit that restores the original text still reads
- * as uncommitted), so callers invalidate on save to get an exact result again.
+ * as uncommitted), so callers `refresh` once typing pauses to get an exact
+ * result for the unsaved text.
  */
 export class BlameCache {
   private readonly entries = new Map<string, Entry>();
@@ -41,6 +42,13 @@ export class BlameCache {
     // Read `entry.lines` rather than the resolved value: edits applied after
     // the blame settled replace the array.
     return toBlameInfo(entry.lines, line);
+  }
+
+  /** Blame for every line of the document, indexed by 0-based line. */
+  async getFile(document: DocumentLike, compute: () => Promise<FileBlame | undefined>): Promise<FileBlame | undefined> {
+    const entry = this.entryFor(document, compute);
+    await entry.promise;
+    return entry.lines;
   }
 
   /** Shifts a settled blame to match an edited document. */
@@ -72,6 +80,30 @@ export class BlameCache {
       entry.lines = lines;
     }
     entry.version = document.version;
+  }
+
+  /**
+   * Re-blames a document whose blame was shifted by edits, keeping the shifted
+   * result until the new one arrives. Resolves to true when the cached blame
+   * was replaced; a result for content edited in the meantime is dropped.
+   */
+  async refresh(document: DocumentLike, compute: () => Promise<FileBlame | undefined>): Promise<boolean> {
+    const entry = this.entries.get(document.uri.toString());
+    if (!entry?.settled || entry.version !== document.version) {
+      return false;
+    }
+    const version = entry.version;
+    let lines: FileBlame | undefined;
+    try {
+      lines = await compute();
+    } catch {
+      return false;
+    }
+    if (!lines || this.entries.get(document.uri.toString()) !== entry || entry.version !== version) {
+      return false;
+    }
+    entry.lines = lines;
+    return true;
   }
 
   delete(uri: { toString(): string }): void {

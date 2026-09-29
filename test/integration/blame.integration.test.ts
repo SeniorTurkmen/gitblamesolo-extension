@@ -8,7 +8,10 @@ import { blameFile, toBlameInfo } from '../../src/git/gitBlame';
 import { buildHunkPatch, getCommitDiff, isRevertibleHunk } from '../../src/git/gitCommitDiff';
 import { getLineDiffHunk, getParentLine } from '../../src/git/gitDiff';
 import { getLineHistory } from '../../src/git/gitLineHistory';
+import { repositoryGitConfigPath } from '../../src/git/gitConfigFiles';
 import { getCommitDetails } from '../../src/git/gitLog';
+import { repoRelativePath } from '../../src/git/repoRelativePath';
+import { removeRepo } from '../fixtures/tempRepo';
 import { clearRemoteCaches, getCommitLink, getCurrentUserEmail } from '../../src/git/gitRemote';
 
 function git(repoRoot: string, args: string[]): void {
@@ -23,27 +26,6 @@ function initRepo(prefix: string): string {
   git(repoRoot, ['config', 'user.name', 'Test User']);
   git(repoRoot, ['config', 'core.autocrlf', 'false']);
   return repoRoot;
-}
-
-function makeWritable(dir: string): void {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const entryPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      makeWritable(entryPath);
-    } else {
-      fs.chmodSync(entryPath, 0o666);
-    }
-  }
-}
-
-/**
- * Deletes a test repository. Git writes object files read-only, and on
- * Windows the Node in VS Code's extension host can't delete read-only files,
- * so make them writable first.
- */
-function removeRepo(repoRoot: string): void {
-  makeWritable(repoRoot);
-  fs.rmSync(repoRoot, { recursive: true, force: true });
 }
 
 function relativeTo(repoRoot: string, filePath: string): string {
@@ -99,6 +81,17 @@ describe('git blame integration', () => {
 
     assert.ok(blame);
     assert.strictEqual(blame!.isUncommitted, true);
+  });
+
+  it('blames unsaved text that matches the committed text to its commit, even after lines moved', async () => {
+    // What the re-blame after an edit relies on: a line edited back to its committed text is no longer uncommitted.
+    const dirtyContent = 'new first line\nline one\nline two changed\nline three\n';
+    const blame = await blameLine({ filePath, content: dirtyContent, line: 2, repoRoot });
+
+    assert.ok(blame);
+    assert.strictEqual(blame!.isUncommitted, false);
+    assert.strictEqual(blame!.summary, 'Second commit');
+    assert.strictEqual(blame!.originalLine, 1);
   });
 
   it('fetches full commit details by sha', async () => {
@@ -393,5 +386,76 @@ describe('blame previous revision', () => {
       line: 3,
     });
     assert.strictEqual(line, 3);
+  });
+});
+
+describe('repository config file', () => {
+  let repoRoot: string;
+  let worktree: string;
+
+  before(() => {
+    repoRoot = initRepo('gitblamesolo-config-');
+    fs.writeFileSync(path.join(repoRoot, 'file.txt'), 'line\n');
+    git(repoRoot, ['add', 'file.txt']);
+    git(repoRoot, ['commit', '-m', 'Add file']);
+    worktree = `${repoRoot}-worktree`;
+    git(repoRoot, ['worktree', 'add', '-b', 'other', worktree]);
+  });
+
+  after(() => {
+    removeRepo(worktree);
+    removeRepo(repoRoot);
+  });
+
+  it('is .git/config for a repository', async () => {
+    const configPath = await repositoryGitConfigPath(repoRoot);
+    assert.strictEqual(fs.realpathSync.native(configPath!), fs.realpathSync.native(path.join(repoRoot, '.git', 'config')));
+  });
+
+  it('is the main repository\'s config for a linked worktree', async () => {
+    const configPath = await repositoryGitConfigPath(worktree);
+    assert.strictEqual(fs.realpathSync.native(configPath!), fs.realpathSync.native(path.join(repoRoot, '.git', 'config')));
+  });
+
+  it('is undefined outside a repository', async () => {
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'gitblamesolo-norepo-'));
+    try {
+      assert.strictEqual(await repositoryGitConfigPath(outside), undefined);
+    } finally {
+      removeRepo(outside);
+    }
+  });
+});
+
+describe('repository-relative path', () => {
+  let repoRoot: string;
+  let link: string;
+
+  before(() => {
+    repoRoot = initRepo('gitblamesolo-relative-');
+    fs.mkdirSync(path.join(repoRoot, 'src'));
+    link = `${repoRoot}-link`;
+    // A junction needs no special rights on Windows; the type is ignored elsewhere.
+    fs.symlinkSync(repoRoot, link, 'junction');
+  });
+
+  after(() => {
+    fs.unlinkSync(link);
+    removeRepo(repoRoot);
+  });
+
+  it('is the path below the root, with forward slashes', async () => {
+    assert.strictEqual(await repoRelativePath(repoRoot, path.join(repoRoot, 'src', 'a.ts')), 'src/a.ts');
+  });
+
+  it('follows a symlink to the repository, as git reports the root with symlinks resolved', async () => {
+    const realRoot = fs.realpathSync.native(repoRoot);
+    assert.strictEqual(await repoRelativePath(realRoot, path.join(link, 'src', 'a.ts')), 'src/a.ts');
+    assert.strictEqual(await repoRelativePath(link, path.join(realRoot, 'src', 'new-file.ts')), 'src/new-file.ts');
+  });
+
+  it('is undefined outside the repository', async () => {
+    assert.strictEqual(await repoRelativePath(repoRoot, path.join(os.tmpdir(), 'elsewhere.ts')), undefined);
+    assert.strictEqual(await repoRelativePath(repoRoot, repoRoot), undefined);
   });
 });

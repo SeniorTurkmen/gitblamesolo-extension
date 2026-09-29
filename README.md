@@ -19,6 +19,7 @@ It does one thing, stays out of the way, and has no dependencies beyond the `git
 
 - [Features](#features)
   - [Inline blame on the current line](#inline-blame-on-the-current-line)
+  - [File blame](#file-blame)
   - [Uncommitted changes, even before you save](#uncommitted-changes-even-before-you-save)
   - [Rich hover: the commit and what it changed](#rich-hover-the-commit-and-what-it-changed)
   - [Native diff editor](#native-diff-editor)
@@ -46,9 +47,9 @@ As your cursor moves, a faded annotation appears at the end of the active line:
 Jane Doe, 3 days ago • Fix race condition in session refresh
 ```
 
-- Only the **active line** is annotated, so the rest of your code stays uncluttered.
+- Only the **active line** is annotated, so the rest of your code stays uncluttered. To see every line's blame at once, turn on [file blame](#file-blame).
 - Recomputation is **debounced** (150 ms by default), so scrolling or holding an arrow key doesn't spawn a flood of `git` processes.
-- The whole file is blamed **once per document** and cached, so moving between lines never runs `git` again. Edits shift the cached result instead of discarding it, and saving re-blames the file.
+- The whole file is blamed **once per document** and cached, so moving between lines never runs `git` again. Edits shift the cached result instead of discarding it, and the file is blamed again once you pause typing or save.
 - The format is fully customizable through a template. See [`gitBlameSolo.decorationTemplate`](#settings).
 - Your own commits read as **"You"** instead of your name.
 - Prefer the status bar? Turn on [`gitBlameSolo.statusBar.enabled`](#settings), and optionally turn off `gitBlameSolo.enabled`.
@@ -56,11 +57,30 @@ Jane Doe, 3 days ago • Fix race condition in session refresh
 
 ![Inline blame annotation at the end of the current line](docs/images/inline-blame.png)
 
+### File blame
+
+Turn on `gitBlameSolo.fileBlame.enabled`, or run **Git Blame Solo: Toggle File Blame**, to show blame for every line of the file in a column before the text:
+
+```
+Jane Doe, 3 days ago    export function refresh() {
+                          const session = load();
+John Roe, 2 years ago     if (!session) {
+```
+
+- Only the first line of each block of lines from the same commit is labelled, so the blocks stand out. The column is formatted with [`gitBlameSolo.fileBlame.template`](#settings) and cut at 50 characters.
+- A **heatmap** tints the column by how recent each line's commit is among the file's commits, from blue for the oldest to orange for the newest and uncommitted lines. Turn it off with `gitBlameSolo.fileBlame.heatmap`.
+- Hovering the column shows the same hover as the inline annotation, for any line.
+- It uses the same cached whole-file blame as the inline annotation, so it runs no extra `git` commands.
+
+File blame is off by default.
+
 ### Uncommitted changes, even before you save
 
 When a line hasn't been committed yet, the annotation says **"Uncommitted changes"**. Git keeps no time for uncommitted lines, so the annotation adds when the file was last saved (*file saved 3 days ago*), or *(file not saved)* while the file has unsaved changes.
 
 Blame is computed against the **live editor buffer**: the extension pipes the buffer's contents to `git blame --contents -`. Lines you just typed are flagged correctly **before you save**, and line numbers never drift out of sync with what's on disk.
+
+While you type, edited lines read as uncommitted right away without running `git`. About a second after you stop typing, the buffer is blamed again, so a line you changed back to its committed text shows its commit again without saving.
 
 ### Rich hover: the commit and what it changed
 
@@ -130,12 +150,13 @@ Open the Command Palette (<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P
 | --- | --- |
 | `Git Blame Solo: Change Setting…` | Lists every Git Blame Solo setting with its current value. Pick one to change it: on/off and fixed choices from a list, text and numbers in an input box, and exclude patterns added or removed one at a time. Every setting can also be reset to its default. |
 | `Git Blame Solo: Toggle Inline Blame` | Turns the end-of-line annotation on or off (saved to your user settings). |
+| `Git Blame Solo: Toggle File Blame` | Turns the file blame column on or off (saved to your user settings). |
 | `Git Blame Solo: Show Commit Details` | Opens the commit details panel for the line under the cursor. Also available from the editor's right-click menu. |
 | `Git Blame Solo: Copy Commit Hash` | Copies the full hash of the commit that last changed the current line to the clipboard. |
 | `Git Blame Solo: Show Line History` | Lists every commit that changed the current line. Picking one opens its change in the diff editor. |
 | `Git Blame Solo: Blame Previous Revision` | Compares the file as it was before the commit that last changed the current line with its current version, at that line. |
 | `Git Blame Solo: Open Commit on Remote` | Opens the commit that last changed the current line on GitHub, GitLab, Bitbucket, or Azure DevOps. |
-| `Git Blame Solo: Refresh` | Re-reads everything cached from git: blame, repository roots, the remote URL, and your `user.email`. Use it after changing your git config or remotes. |
+| `Git Blame Solo: Refresh` | Re-reads everything cached from git: blame, repository roots, the remote URL, and your `user.email`. Rarely needed: changes to the repository's and your global git config are picked up automatically. |
 | `Git Blame Solo: Hide Author Email` / `Show Author Email` | Hides or shows the author's email in the hover (saved to your user settings). Only the one that applies is listed. |
 
 None of the commands has a default shortcut. To add one, open **Keyboard Shortcuts** (<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>K</kbd> <kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>S</kbd>) and search for **Git Blame Solo**.
@@ -160,7 +181,7 @@ Every setting below can also be changed from the Command Palette with **Git Blam
 | `gitBlameSolo.decorationColor` | `""` | Theme color id (e.g. `editorLineNumber.foreground`) or hex color (e.g. `#888888`). Empty uses `editorCodeLens.foreground`. |
 | `gitBlameSolo.debounceMs` | `150` | Milliseconds to wait after the cursor stops moving before recomputing blame. |
 | `gitBlameSolo.hover.enabled` | `true` | Show full commit details on hover. |
-| `gitBlameSolo.hover.trigger` | `"annotation"` | `"annotation"` shows the hover only over the inline annotation at the end of the current line (needs `gitBlameSolo.enabled`). `"line"` shows it anywhere on any line. |
+| `gitBlameSolo.hover.trigger` | `"annotation"` | `"annotation"` shows the hover only over the inline annotation at the end of the current line (needs `gitBlameSolo.enabled`) and over the file blame column. `"line"` shows it anywhere on any line. |
 | `gitBlameSolo.maxFileSizeKB` | `5000` | Files larger than this are skipped for performance. |
 | `gitBlameSolo.uncommittedLabel` | `"Uncommitted changes"` | Label shown for lines that haven't been committed yet. |
 | `gitBlameSolo.currentUserLabel` | `"You"` | Shown instead of the author's name in the annotation and status bar when the author's email matches your `git config user.email`. Empty always shows the name. |
@@ -171,6 +192,9 @@ Every setting below can also be changed from the Command Palette with **Git Blam
 | `gitBlameSolo.detectMovedLines` | `"off"` | `"withinFile"` follows lines moved or copied within the file (`-M`). `"acrossFiles"` also follows lines moved from other files changed in the same commit (`-C`); slower on large repositories. |
 | `gitBlameSolo.ignoreRevsFile` | `".git-blame-ignore-revs"` | File at the repository root listing commits to skip, such as bulk reformatting (`--ignore-revs-file`). Skipped when the file doesn't exist; empty disables it. |
 | `gitBlameSolo.exclude` | `[]` | Glob patterns for files that get no annotation, status bar entry, or hover, for example `"**/*.min.js"`. |
+| `gitBlameSolo.fileBlame.enabled` | `false` | Show blame for every line of the file in a column before the text. Also toggled by **Git Blame Solo: Toggle File Blame**. |
+| `gitBlameSolo.fileBlame.template` | `"${author}, ${date}"` | Template for the file blame column. Same placeholders as `decorationTemplate`. |
+| `gitBlameSolo.fileBlame.heatmap` | `true` | Tint the file blame column by how recent each line's commit is, from blue (oldest) to orange (newest). |
 
 For example, to show the short hash first with an absolute date:
 
@@ -184,8 +208,7 @@ For example, to show the short hash first with an absolute date:
 ## Known limitations
 
 - The time shown for uncommitted lines is when the file was last saved, not when that line changed. While the file has unsaved changes, no time is shown.
-- Between saves, any line you edit reads as uncommitted, even if you change it back to its committed text. Saving the file corrects it.
-- The remote URL and your `user.email` are read once per repository. After changing them with `git config` or `git remote`, run **Git Blame Solo: Refresh**.
+- The remote URL and your `user.email` are re-read when the repository's config file or your global git config (`~/.gitconfig`, `~/.config/git/config`, or `$GIT_CONFIG_GLOBAL`) changes. Changes elsewhere, such as the system config or a file pulled in with `include`, need **Git Blame Solo: Refresh**.
 - Files larger than `gitBlameSolo.maxFileSizeKB` are skipped.
 - Only local files and the past revisions this extension opens are blamed. Other virtual or remote file systems aren't.
 
