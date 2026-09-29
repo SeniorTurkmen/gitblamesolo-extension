@@ -218,21 +218,41 @@ npm test            # end-to-end integration tests in an Extension Development H
 ### Packaging
 
 ```bash
-npm run package
-npx vsce package --no-dependencies
+npx vsce package --no-dependencies   # builds dist/ via vscode:prepublish
 ```
 
-### Publishing to Open VSX
+### Publishing
 
-A published GitHub release runs [`.github/workflows/publish.yml`](.github/workflows/publish.yml), which publishes the extension with [trusted publishing](https://github.com/eclipse-openvsx/openvsx/blob/master/cli/README.md#trusted-publishing). No access token is stored in the repo.
+Publishing a GitHub release runs [`.github/workflows/publish.yml`](.github/workflows/publish.yml). The release tag must match the `package.json` version, for example `v0.1.1`. The workflow:
+
+1. Packages the extension once into a `.vsix`.
+2. Publishes that same package to the Visual Studio Marketplace and to Open VSX, in separate jobs, so a failure in one doesn't block the other.
+3. Attaches the `.vsix` to the GitHub release.
+
+To publish the current `package.json` version without a new release, or to retry a single store, run **Publish** from the Actions tab and pick `both`, `marketplace`, or `openvsx`.
+
+#### Visual Studio Marketplace
+
+The Marketplace job signs in to Microsoft Entra ID as a user-assigned managed identity, using the workflow's GitHub OIDC token, and publishes with `vsce publish --azure-credential`. No Marketplace token is stored, so the [retirement of global Azure DevOps PATs](https://aka.ms/GlobalPATDeprecation) doesn't affect it. One-time setup:
+
+1. **Managed identity.** In the [Azure portal](https://portal.azure.com), create a **User Assigned Managed Identity** in any subscription (a free one works). Note its **Client ID**, and the **Tenant ID** of your directory.
+2. **Federated credential.** On the identity, open **Settings → Federated credentials → Add credential**, pick **GitHub Actions deploying Azure resources**, and enter organization `SeniorTurkmen`, repository `gitblamesolo-extension`, entity **Environment**, environment `marketplace`.
+3. **GitHub.** In this repository's settings, create the environment `marketplace`, and add the Actions **variables** (not secrets) `AZURE_CLIENT_ID` and `AZURE_TENANT_ID`.
+4. **Member ID.** Run **Publish** from the Actions tab with target `marketplace-identity`. The run summary shows the ID the Marketplace knows the identity by.
+5. **Publisher.** On the [Marketplace publisher management page](https://marketplace.visualstudio.com/manage), create the publisher `SeniorTurkmen` if it doesn't exist yet (the ID must match `publisher` in `package.json`). Under **Members**, add the ID from step 4 with the **Contributor** role.
+
+After that, releases publish to the Marketplace automatically. To publish the current version on its own, run **Publish** with target `marketplace`.
+
+#### Open VSX
+
+The Open VSX job publishes with [trusted publishing](https://github.com/eclipse-openvsx/openvsx/blob/master/cli/README.md#trusted-publishing), so no access token is stored in the repo.
 
 Creating the `SeniorTurkmen` namespace makes you a contributor, not an owner. The [Trusted publishers](https://open-vsx.org/user-settings/trusted-publishers) page only lists namespaces you own, so it stays empty until ownership is granted.
 
 Until then, publish with an access token:
 
 1. Create a token at [Access tokens](https://open-vsx.org/user-settings/tokens).
-2. Add it to this repo as the Actions secret `OVSX_PAT`.
-3. Run **Publish to Open VSX** from the Actions tab. The workflow uses that secret when it is set.
+2. Add it to this repo as the Actions secret `OVSX_PAT`. The workflow uses that secret when it is set.
 
 After you [claim the namespace](https://github.com/EclipseFdn/open-vsx.org/issues/new/choose) and Eclipse grants it, the Trusted publishers page lists `SeniorTurkmen`. Add this repository there with workflow file `publish.yml` and no environment, then remove `OVSX_PAT`. Later releases publish with the workflow's OIDC token and no stored secret.
 
