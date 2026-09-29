@@ -115,6 +115,7 @@ Open the Command Palette (<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P
 
 | Command | Description |
 | --- | --- |
+| `Git Blame Solo: Change Setting…` | Lists every Git Blame Solo setting with its current value. Pick one to change it: on/off and fixed choices from a list, text and numbers in an input box, and exclude patterns added or removed one at a time. Every setting can also be reset to its default. |
 | `Git Blame Solo: Toggle Inline Blame` | Turns the end-of-line annotation on or off (saved to your user settings). |
 | `Git Blame Solo: Show Commit Details` | Opens the commit details panel for the line under the cursor. Also available from the editor's right-click menu. |
 | `Git Blame Solo: Copy Commit Hash` | Copies the full hash of the commit that last changed the current line to the clipboard. |
@@ -133,6 +134,8 @@ None of the commands has a default shortcut. To add one, open **Keyboard Shortcu
 - The file must be inside a git repository. Files outside a repository are ignored.
 
 ## Settings
+
+Every setting below can also be changed from the Command Palette with **Git Blame Solo: Change Setting…**.
 
 | Setting | Default | Description |
 | --- | --- | --- |

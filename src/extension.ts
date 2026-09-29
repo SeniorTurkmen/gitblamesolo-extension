@@ -4,6 +4,7 @@ import { BlameCache } from './cache/blameCache';
 import { CommitCache } from './cache/commitCache';
 import { CommitDiffCache } from './cache/commitDiffCache';
 import { LineDiffCache } from './cache/lineDiffCache';
+import { changeSetting } from './commands/changeSetting';
 import { getConfig, onConfigChanged } from './config';
 import { CurrentLineBlameDecorator } from './decorations/currentLineDecorator';
 import { GitCliError, runGit } from './git/gitCli';
@@ -132,6 +133,10 @@ export function activate(context: vscode.ExtensionContext): void {
       }),
     );
   }
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('gitBlameSolo.changeSetting', () => changeSetting(context.extension)),
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand('gitBlameSolo.toggle', async () => {

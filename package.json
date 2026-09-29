@@ -149,6 +149,10 @@
     },
     "commands": [
       {
+        "command": "gitBlameSolo.changeSetting",
+        "title": "Git Blame Solo: Change Setting…"
+      },
+      {
         "command": "gitBlameSolo.toggle",
         "title": "Git Blame Solo: Toggle Inline Blame"
       },
