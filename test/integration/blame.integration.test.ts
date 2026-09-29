@@ -409,12 +409,12 @@ describe('repository config file', () => {
 
   it('is .git/config for a repository', async () => {
     const configPath = await repositoryGitConfigPath(repoRoot);
-    assert.strictEqual(fs.realpathSync(configPath!), fs.realpathSync(path.join(repoRoot, '.git', 'config')));
+    assert.strictEqual(fs.realpathSync.native(configPath!), fs.realpathSync.native(path.join(repoRoot, '.git', 'config')));
   });
 
   it('is the main repository\'s config for a linked worktree', async () => {
     const configPath = await repositoryGitConfigPath(worktree);
-    assert.strictEqual(fs.realpathSync(configPath!), fs.realpathSync(path.join(repoRoot, '.git', 'config')));
+    assert.strictEqual(fs.realpathSync.native(configPath!), fs.realpathSync.native(path.join(repoRoot, '.git', 'config')));
   });
 
   it('is undefined outside a repository', async () => {
