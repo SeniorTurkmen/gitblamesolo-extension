@@ -25,6 +25,9 @@ export class FileBlameDecorator implements vscode.Disposable {
       before: {
         color: new vscode.ThemeColor('editorCodeLens.foreground'),
         margin: '0 1.5ch 0 0',
+        // Setting a height makes VS Code render the column inline-block, so the
+        // heatmap fills the whole line instead of leaving a gap between lines.
+        height: '100%',
       },
       rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
     });
