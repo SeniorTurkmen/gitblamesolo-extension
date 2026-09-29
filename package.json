@@ -69,6 +69,19 @@
           "default": true,
           "description": "Show full commit details on hover."
         },
+        "gitBlameSolo.hover.trigger": {
+          "type": "string",
+          "enum": [
+            "annotation",
+            "line"
+          ],
+          "enumDescriptions": [
+            "Show the hover only when the mouse is over the inline annotation at the end of the current line. Requires gitBlameSolo.enabled.",
+            "Show the hover when the mouse is anywhere over any line."
+          ],
+          "default": "annotation",
+          "description": "Where the mouse must be to show the blame hover."
+        },
         "gitBlameSolo.maxFileSizeKB": {
           "type": "number",
           "default": 5000,

@@ -2,6 +2,9 @@ import * as vscode from 'vscode';
 import { BlameOptions, MovedLinesDetection } from './git/gitBlame';
 import { DateStyle } from './util/dateFormat';
 
+/** What the mouse must be over to show the blame hover. */
+export type HoverTrigger = 'annotation' | 'line';
+
 export interface GitBlameSoloConfig {
   enabled: boolean;
   dateStyle: DateStyle;
@@ -9,6 +12,7 @@ export interface GitBlameSoloConfig {
   decorationColor: string | undefined;
   debounceMs: number;
   hoverEnabled: boolean;
+  hoverTrigger: HoverTrigger;
   maxFileSizeBytes: number;
   uncommittedLabel: string;
   currentUserLabel: string;
@@ -29,6 +33,7 @@ export function getConfig(): GitBlameSoloConfig {
     decorationColor: decorationColor.length > 0 ? decorationColor : undefined,
     debounceMs: cfg.get<number>('debounceMs', 150),
     hoverEnabled: cfg.get<boolean>('hover.enabled', true),
+    hoverTrigger: cfg.get<HoverTrigger>('hover.trigger', 'annotation'),
     maxFileSizeBytes: cfg.get<number>('maxFileSizeKB', 5000) * 1024,
     uncommittedLabel: cfg.get<string>('uncommittedLabel', 'Uncommitted changes'),
     currentUserLabel: cfg.get<string>('currentUserLabel', 'You'),

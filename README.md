@@ -62,7 +62,7 @@ Blame is computed against the **live editor buffer**: the extension pipes the bu
 
 ### Rich hover: the commit and what it changed
 
-Hover any line (not just the active one) to open a popup containing:
+Hover the inline annotation at the end of the current line to open a popup containing:
 
 | Section | What you see |
 | --- | --- |
@@ -72,6 +72,8 @@ Hover any line (not just the active one) to open a popup containing:
 | **Actions** | **Open in Diff Editor**, **View changed files (N files)**, and **Open on GitHub** (or GitLab, Bitbucket, Azure DevOps) when the repository has a remote |
 
 This shows you the context of a change right away: you see the rest of the block that changed with the line, not just the one line in isolation.
+
+By default the popup only opens over the annotation, so hovering your code for other tooltips (types, errors, docs) isn't crowded by blame. To get it anywhere on any line instead, set [`gitBlameSolo.hover.trigger`](#settings) to `"line"`.
 
 ![Hover popup with commit details and the changed block](docs/images/hover.png)
 
@@ -139,6 +141,7 @@ None of the commands has a default shortcut. To add one, open **Keyboard Shortcu
 | `gitBlameSolo.decorationColor` | `""` | Theme color id (e.g. `editorLineNumber.foreground`) or hex color (e.g. `#888888`). Empty uses `editorCodeLens.foreground`. |
 | `gitBlameSolo.debounceMs` | `150` | Milliseconds to wait after the cursor stops moving before recomputing blame. |
 | `gitBlameSolo.hover.enabled` | `true` | Show full commit details on hover. |
+| `gitBlameSolo.hover.trigger` | `"annotation"` | `"annotation"` shows the hover only over the inline annotation at the end of the current line (needs `gitBlameSolo.enabled`). `"line"` shows it anywhere on any line. |
 | `gitBlameSolo.maxFileSizeKB` | `5000` | Files larger than this are skipped for performance. |
 | `gitBlameSolo.uncommittedLabel` | `"Uncommitted changes"` | Label shown for lines that haven't been committed yet. |
 | `gitBlameSolo.currentUserLabel` | `"You"` | Shown instead of the author's name in the annotation and status bar when the author's email matches your `git config user.email`. Empty always shows the name. |

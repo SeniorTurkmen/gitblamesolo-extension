@@ -43,6 +43,21 @@ export interface BlameHoverProviderDeps {
   getConfig: () => GitBlameSoloConfig;
 }
 
+/**
+ * The annotation is injected after the end of the active line, and VS Code
+ * reports a hover over injected text at the line's end column. Hovering the
+ * empty space past the end of that line lands there too.
+ */
+function isOverAnnotation(document: vscode.TextDocument, position: vscode.Position, config: GitBlameSoloConfig): boolean {
+  const editor = vscode.window.activeTextEditor;
+  return (
+    config.enabled &&
+    editor?.document === document &&
+    editor.selection.active.line === position.line &&
+    position.character >= document.lineAt(position.line).range.end.character
+  );
+}
+
 export class BlameHoverProvider implements vscode.HoverProvider {
   constructor(private readonly deps: BlameHoverProviderDeps) {}
 
@@ -56,6 +71,9 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       return undefined;
     }
     if (document.getText().length > config.maxFileSizeBytes || isExcluded(document, config)) {
+      return undefined;
+    }
+    if (config.hoverTrigger === 'annotation' && !isOverAnnotation(document, position, config)) {
       return undefined;
     }
 
@@ -81,7 +99,9 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       return undefined;
     }
 
-    const range = document.lineAt(line).range;
+    const lineRange = document.lineAt(line).range;
+    const range =
+      config.hoverTrigger === 'annotation' ? new vscode.Range(lineRange.end, lineRange.end) : lineRange;
 
     if (blame.isUncommitted) {
       const mtimeSeconds = await this.getMtimeSeconds(document.uri.fsPath);
