@@ -57,7 +57,10 @@ export interface CommitDetails {
   authorTimestamp: number;
   committerTimestamp: number;
   summary: string;
+  /** The message body without its "Co-authored-by" trailers. */
   body: string;
+  /** People credited with "Co-authored-by" trailers, other than the author. */
+  coAuthors: { name: string; email: string }[];
   files: CommitFileChange[];
 }
 

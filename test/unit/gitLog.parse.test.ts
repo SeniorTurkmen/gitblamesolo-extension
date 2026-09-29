@@ -20,6 +20,16 @@ describe('parseCommitDetails', () => {
     assert.deepStrictEqual(details.files[2], { status: 'R', path: 'new/path.ts', oldPath: 'old/path.ts' });
   });
 
+  it('separates co-author trailers from the body', () => {
+    const raw = ['c'.repeat(40), 'Ada', 'ada@example.com', '1', '1', 'Pair on it', 'Body text.\n\nCo-authored-by: Grace <grace@example.com>'].join(
+      '\x1f',
+    );
+    const details = parseCommitDetails(raw, 'fallback-sha');
+
+    assert.strictEqual(details.body, 'Body text.');
+    assert.deepStrictEqual(details.coAuthors, [{ name: 'Grace', email: 'grace@example.com' }]);
+  });
+
   it('falls back to the provided sha when output is empty', () => {
     const details = parseCommitDetails('', 'fallback-sha');
     assert.strictEqual(details.sha, 'fallback-sha');

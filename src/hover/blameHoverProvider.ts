@@ -196,6 +196,10 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     md.appendMarkdown(
       `$(account) ${escapeAngleBrackets(formatAuthor(commit.authorName, commit.authorEmail, config.showAuthorEmail))} &nbsp;&nbsp; $(clock) ${formatDate(commit.authorTimestamp, 'absolute')}\n\n`,
     );
+    if (commit.coAuthors.length > 0) {
+      const names = commit.coAuthors.map((p) => formatAuthor(p.name, p.email, config.showAuthorEmail)).join(', ');
+      md.appendMarkdown(`$(organization) Co-authored by ${escapeAngleBrackets(names)}\n\n`);
+    }
     if (commit.body) {
       md.appendMarkdown(`${commit.body}\n\n`);
     }

@@ -429,6 +429,13 @@ export class CommitDetailsPanel {
         : ''
     }
   </div>
+  ${
+    commit.coAuthors.length > 0
+      ? `<div class="meta">Co-authored by ${commit.coAuthors
+          .map((p) => `${escapeHtml(p.name)} &lt;${escapeHtml(p.email)}&gt;`)
+          .join(', ')}</div>`
+      : ''
+  }
   ${commit.body ? `<div class="body">${escapeHtml(commit.body)}</div>` : ''}
   <h3>Changed files (${commit.files.length})</h3>
   ${sectionsHtml}

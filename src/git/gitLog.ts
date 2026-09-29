@@ -1,5 +1,6 @@
 import { GitCliError, runGit } from './gitCli';
 import { CommitDetails, CommitFileChange, FileChangeStatus } from '../types';
+import { extractCoAuthors } from '../util/coAuthors';
 
 const FIELD_SEP = '\x1f';
 const RECORD_SEP = '\x1e';
@@ -31,7 +32,8 @@ export function parseCommitDetails(raw: string, sha: string): CommitDetails {
   const filesPart = recordSepIndex === -1 ? '' : raw.slice(recordSepIndex + 1);
 
   const fields = headerPart.split(FIELD_SEP);
-  const [rawSha, authorName, authorEmail, authorTime, committerTime, summary, body] = fields;
+  const [rawSha, authorName, authorEmail, authorTime, committerTime, summary, rawBody] = fields;
+  const { coAuthors, body } = extractCoAuthors(rawBody ?? '', authorEmail ?? '');
 
   return {
     sha: rawSha || sha,
@@ -40,7 +42,8 @@ export function parseCommitDetails(raw: string, sha: string): CommitDetails {
     authorTimestamp: parseInt(authorTime, 10) || 0,
     committerTimestamp: parseInt(committerTime, 10) || 0,
     summary: summary ?? '',
-    body: (body ?? '').trim(),
+    body,
+    coAuthors,
     files: parseNameStatus(filesPart),
   };
 }
