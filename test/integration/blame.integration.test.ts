@@ -24,6 +24,19 @@ function initRepo(prefix: string): string {
   return repoRoot;
 }
 
+/**
+ * Deletes a test repository. On Windows a just-exited git process or a virus
+ * scanner can briefly keep the directory open, so retry, and don't fail the
+ * suite over a leftover temp directory.
+ */
+function removeRepo(repoRoot: string): void {
+  try {
+    fs.rmSync(repoRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  } catch (err) {
+    console.warn(`Could not remove ${repoRoot}: ${String(err)}`);
+  }
+}
+
 function relativeTo(repoRoot: string, filePath: string): string {
   return path.relative(repoRoot, filePath).split(path.sep).join('/');
 }
@@ -51,7 +64,7 @@ describe('git blame integration', () => {
   });
 
   after(() => {
-    fs.rmSync(repoRoot, { recursive: true, force: true });
+    removeRepo(repoRoot);
   });
 
   it('resolves a committed line to its commit', async () => {
@@ -182,7 +195,7 @@ describe('git line-diff block replacement', () => {
   });
 
   after(() => {
-    fs.rmSync(repoRoot, { recursive: true, force: true });
+    removeRepo(repoRoot);
   });
 
   it('returns the full replaced block when blaming any line inside it, not just the probed line', async () => {
@@ -233,7 +246,7 @@ describe('git blame options', () => {
   });
 
   after(() => {
-    fs.rmSync(repoRoot, { recursive: true, force: true });
+    removeRepo(repoRoot);
   });
 
   const defaults = { ignoreWhitespace: false, detectMovedLines: 'off' as const, ignoreRevsFile: '' };
@@ -307,7 +320,7 @@ describe('blame previous revision', () => {
   });
 
   after(() => {
-    fs.rmSync(repoRoot, { recursive: true, force: true });
+    removeRepo(repoRoot);
   });
 
   it('reports the commit and path a line had before its commit, across a rename', async () => {
