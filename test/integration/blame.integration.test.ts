@@ -25,17 +25,25 @@ function initRepo(prefix: string): string {
   return repoRoot;
 }
 
+function makeWritable(dir: string): void {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const entryPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      makeWritable(entryPath);
+    } else {
+      fs.chmodSync(entryPath, 0o666);
+    }
+  }
+}
+
 /**
- * Deletes a test repository. On Windows a just-exited git process or a virus
- * scanner can briefly keep the directory open, so retry, and don't fail the
- * suite over a leftover temp directory.
+ * Deletes a test repository. Git writes object files read-only, and on
+ * Windows the Node in VS Code's extension host can't delete read-only files,
+ * so make them writable first.
  */
 function removeRepo(repoRoot: string): void {
-  try {
-    fs.rmSync(repoRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
-  } catch (err) {
-    console.warn(`Could not remove ${repoRoot}: ${String(err)}`);
-  }
+  makeWritable(repoRoot);
+  fs.rmSync(repoRoot, { recursive: true, force: true });
 }
 
 function relativeTo(repoRoot: string, filePath: string): string {
