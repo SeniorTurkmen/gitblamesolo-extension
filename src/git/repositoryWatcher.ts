@@ -1,4 +1,6 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
+import { globalGitConfigPaths, repositoryGitConfigPath } from './gitConfigFiles';
 import type { GitExtension, Repository } from '../types/git';
 
 export interface RepositoryWatcherCallbacks {
@@ -6,12 +8,27 @@ export interface RepositoryWatcherCallbacks {
   onHeadChanged: () => void;
   /** A repository was opened or closed, so file → repository resolution may be stale. */
   onRepositoriesChanged: () => void;
+  /** A git config file changed, so the remote URL or user.email may be different. */
+  onConfigChanged: () => void;
+}
+
+/** Calls `listener` whenever the file at `filePath` is created, changed, or deleted. */
+export function watchFile(filePath: string, listener: () => void): vscode.Disposable {
+  const watcher = vscode.workspace.createFileSystemWatcher(
+    new vscode.RelativePattern(vscode.Uri.file(path.dirname(filePath)), path.basename(filePath)),
+  );
+  // Git rewrites a config file by renaming a lock file over it, which can read as any of the three.
+  watcher.onDidCreate(listener);
+  watcher.onDidChange(listener);
+  watcher.onDidDelete(listener);
+  return watcher;
 }
 
 /**
- * Watches repositories through the built-in git extension. If that extension
- * is unavailable or disabled, nothing is watched and caches only refresh when
- * the document changes.
+ * Watches repositories through the built-in git extension, along with each
+ * repository's config file and the global git config. If that extension is
+ * unavailable or disabled, only the global config is watched and other caches
+ * only refresh when the document changes.
  */
 export class RepositoryWatcher implements vscode.Disposable {
   private readonly disposables: vscode.Disposable[] = [];
@@ -19,6 +36,9 @@ export class RepositoryWatcher implements vscode.Disposable {
   private disposed = false;
 
   constructor(private readonly callbacks: RepositoryWatcherCallbacks) {
+    for (const file of globalGitConfigPaths()) {
+      this.disposables.push(watchFile(file, () => this.callbacks.onConfigChanged()));
+    }
     void this.start();
   }
 
@@ -74,8 +94,7 @@ export class RepositoryWatcher implements vscode.Disposable {
     // state.onDidChange also fires for plain working-tree edits; only a moved
     // HEAD can change which commit a line is attributed to.
     let lastHead = repo.state.HEAD?.commit;
-    this.perRepo.set(
-      key,
+    const disposables: vscode.Disposable[] = [
       repo.state.onDidChange(() => {
         const head = repo.state.HEAD?.commit;
         if (head !== lastHead) {
@@ -83,6 +102,19 @@ export class RepositoryWatcher implements vscode.Disposable {
           this.callbacks.onHeadChanged();
         }
       }),
-    );
+    ];
+    let closed = false;
+    this.perRepo.set(key, {
+      dispose: () => {
+        closed = true;
+        disposables.forEach((d) => d.dispose());
+      },
+    });
+
+    void repositoryGitConfigPath(repo.rootUri.fsPath).then((configPath) => {
+      if (configPath && !closed && !this.disposed) {
+        disposables.push(watchFile(configPath, () => this.callbacks.onConfigChanged()));
+      }
+    });
   }
 }

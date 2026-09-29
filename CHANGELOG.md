@@ -3,6 +3,7 @@
 ## Unreleased
 
 - A line you edit and then change back to its committed text shows its commit again about a second after you stop typing, instead of reading as uncommitted until you save. The buffer is blamed again whenever typing pauses.
+- The remote URL and your `user.email` are re-read when the repository's config file or your global git config changes (for example after `git remote set-url` or `git config user.email`), so **Git Blame Solo: Refresh** is no longer needed for that.
 
 ## 0.1.2
 

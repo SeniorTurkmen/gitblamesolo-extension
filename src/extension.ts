@@ -143,6 +143,10 @@ export function activate(context: vscode.ExtensionContext): void {
         decorator.refreshNow();
       },
       onRepositoriesChanged: resetCaches,
+      onConfigChanged: () => {
+        clearRemoteCaches();
+        decorator.refreshNow();
+      },
     }),
   );
   context.subscriptions.push(

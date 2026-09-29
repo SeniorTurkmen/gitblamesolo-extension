@@ -8,6 +8,7 @@ import { blameFile, toBlameInfo } from '../../src/git/gitBlame';
 import { buildHunkPatch, getCommitDiff, isRevertibleHunk } from '../../src/git/gitCommitDiff';
 import { getLineDiffHunk, getParentLine } from '../../src/git/gitDiff';
 import { getLineHistory } from '../../src/git/gitLineHistory';
+import { repositoryGitConfigPath } from '../../src/git/gitConfigFiles';
 import { getCommitDetails } from '../../src/git/gitLog';
 import { clearRemoteCaches, getCommitLink, getCurrentUserEmail } from '../../src/git/gitRemote';
 
@@ -404,5 +405,43 @@ describe('blame previous revision', () => {
       line: 3,
     });
     assert.strictEqual(line, 3);
+  });
+});
+
+describe('repository config file', () => {
+  let repoRoot: string;
+  let worktree: string;
+
+  before(() => {
+    repoRoot = initRepo('gitblamesolo-config-');
+    fs.writeFileSync(path.join(repoRoot, 'file.txt'), 'line\n');
+    git(repoRoot, ['add', 'file.txt']);
+    git(repoRoot, ['commit', '-m', 'Add file']);
+    worktree = `${repoRoot}-worktree`;
+    git(repoRoot, ['worktree', 'add', '-b', 'other', worktree]);
+  });
+
+  after(() => {
+    removeRepo(worktree);
+    removeRepo(repoRoot);
+  });
+
+  it('is .git/config for a repository', async () => {
+    const configPath = await repositoryGitConfigPath(repoRoot);
+    assert.strictEqual(fs.realpathSync(configPath!), fs.realpathSync(path.join(repoRoot, '.git', 'config')));
+  });
+
+  it('is the main repository\'s config for a linked worktree', async () => {
+    const configPath = await repositoryGitConfigPath(worktree);
+    assert.strictEqual(fs.realpathSync(configPath!), fs.realpathSync(path.join(repoRoot, '.git', 'config')));
+  });
+
+  it('is undefined outside a repository', async () => {
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'gitblamesolo-norepo-'));
+    try {
+      assert.strictEqual(await repositoryGitConfigPath(outside), undefined);
+    } finally {
+      removeRepo(outside);
+    }
   });
 });
