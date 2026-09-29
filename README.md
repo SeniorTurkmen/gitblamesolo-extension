@@ -184,6 +184,8 @@ For example, to show the short hash first with an absolute date:
 
 ## Development
 
+Requires Node.js 22 or later.
+
 ```bash
 npm install
 npm run watch     # esbuild watch mode
