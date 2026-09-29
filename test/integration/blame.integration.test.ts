@@ -14,6 +14,16 @@ function git(repoRoot: string, args: string[]): void {
   execFileSync('git', args, { cwd: repoRoot });
 }
 
+/** A fresh repository with a fixed identity and no line-ending conversion, so results match on every OS. */
+function initRepo(prefix: string): string {
+  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  git(repoRoot, ['init', '--initial-branch=main']);
+  git(repoRoot, ['config', 'user.email', 'test@example.com']);
+  git(repoRoot, ['config', 'user.name', 'Test User']);
+  git(repoRoot, ['config', 'core.autocrlf', 'false']);
+  return repoRoot;
+}
+
 async function blameLine(options: { filePath: string; content: string; line: number; repoRoot: string }) {
   return toBlameInfo(await blameFile(options), options.line);
 }
@@ -23,10 +33,7 @@ describe('git blame integration', () => {
   let filePath: string;
 
   before(() => {
-    repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gitblamesolo-'));
-    git(repoRoot, ['init', '--initial-branch=main']);
-    git(repoRoot, ['config', 'user.email', 'test@example.com']);
-    git(repoRoot, ['config', 'user.name', 'Test User']);
+    repoRoot = initRepo('gitblamesolo-');
 
     filePath = path.join(repoRoot, 'file.txt');
     fs.writeFileSync(filePath, 'line one\nline two\n');
@@ -154,10 +161,7 @@ describe('git line-diff block replacement', () => {
   let secondSha: string;
 
   before(() => {
-    repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gitblamesolo-block-'));
-    git(repoRoot, ['init', '--initial-branch=main']);
-    git(repoRoot, ['config', 'user.email', 'test@example.com']);
-    git(repoRoot, ['config', 'user.name', 'Test User']);
+    repoRoot = initRepo('gitblamesolo-block-');
 
     const original = ['pad1', 'pad2', 'pad3', 'pad4', 'b', 'c', 'd', 'pad5', 'pad6', 'pad7', 'pad8'];
     filePath = path.join(repoRoot, 'block.txt');
@@ -210,10 +214,7 @@ describe('git blame options', () => {
   let reformatSha: string;
 
   before(() => {
-    repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gitblamesolo-options-'));
-    git(repoRoot, ['init', '--initial-branch=main']);
-    git(repoRoot, ['config', 'user.email', 'test@example.com']);
-    git(repoRoot, ['config', 'user.name', 'Test User']);
+    repoRoot = initRepo('gitblamesolo-options-');
 
     filePath = path.join(repoRoot, 'code.txt');
     fs.writeFileSync(filePath, 'alpha\nbeta\n');

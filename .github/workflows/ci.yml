@@ -8,7 +8,11 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,5 +41,11 @@ jobs:
       - name: Unit tests
         run: npm run test:unit
 
+      # VS Code needs a display; Linux runners have none, so provide a virtual one.
       - name: Integration tests (Extension Development Host)
+        if: runner.os == 'Linux'
         run: xvfb-run -a npx vscode-test
+
+      - name: Integration tests (Extension Development Host)
+        if: runner.os != 'Linux'
+        run: npx vscode-test
