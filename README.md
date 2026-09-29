@@ -218,21 +218,37 @@ npm test            # end-to-end integration tests in an Extension Development H
 ### Packaging
 
 ```bash
-npm run package
-npx vsce package --no-dependencies
+npx vsce package --no-dependencies   # builds dist/ via vscode:prepublish
 ```
 
-### Publishing to Open VSX
+### Publishing
 
-A published GitHub release runs [`.github/workflows/publish.yml`](.github/workflows/publish.yml), which publishes the extension with [trusted publishing](https://github.com/eclipse-openvsx/openvsx/blob/master/cli/README.md#trusted-publishing). No access token is stored in the repo.
+Publishing a GitHub release runs [`.github/workflows/publish.yml`](.github/workflows/publish.yml). The release tag must match the `package.json` version, for example `v0.1.1`. The workflow:
+
+1. Packages the extension once into a `.vsix`.
+2. Publishes that same package to the Visual Studio Marketplace and to Open VSX, in separate jobs, so a failure in one doesn't block the other.
+3. Attaches the `.vsix` to the GitHub release.
+
+To publish the current `package.json` version without a new release, or to retry a single store, run **Publish** from the Actions tab and pick `both`, `marketplace`, or `openvsx`.
+
+#### Visual Studio Marketplace
+
+1. Sign in to the [Marketplace publisher management page](https://marketplace.visualstudio.com/manage) and create the publisher `SeniorTurkmen`. The ID must match `publisher` in `package.json`.
+2. In [Azure DevOps](https://dev.azure.com), create a personal access token with **Organization: All accessible organizations** and the **Marketplace → Manage** scope.
+3. Add it to this repo as the Actions secret `VSCE_PAT`.
+
+The Marketplace job fails with an explanatory error while `VSCE_PAT` isn't set.
+
+#### Open VSX
+
+The Open VSX job publishes with [trusted publishing](https://github.com/eclipse-openvsx/openvsx/blob/master/cli/README.md#trusted-publishing), so no access token is stored in the repo.
 
 Creating the `SeniorTurkmen` namespace makes you a contributor, not an owner. The [Trusted publishers](https://open-vsx.org/user-settings/trusted-publishers) page only lists namespaces you own, so it stays empty until ownership is granted.
 
 Until then, publish with an access token:
 
 1. Create a token at [Access tokens](https://open-vsx.org/user-settings/tokens).
-2. Add it to this repo as the Actions secret `OVSX_PAT`.
-3. Run **Publish to Open VSX** from the Actions tab. The workflow uses that secret when it is set.
+2. Add it to this repo as the Actions secret `OVSX_PAT`. The workflow uses that secret when it is set.
 
 After you [claim the namespace](https://github.com/EclipseFdn/open-vsx.org/issues/new/choose) and Eclipse grants it, the Trusted publishers page lists `SeniorTurkmen`. Add this repository there with workflow file `publish.yml` and no environment, then remove `OVSX_PAT`. Later releases publish with the workflow's OIDC token and no stored secret.
 
