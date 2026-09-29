@@ -1,7 +1,7 @@
-import * as path from 'path';
 import * as vscode from 'vscode';
 import { BlameOptions, blameFile, FileBlame } from './gitBlame';
 import { resolveRepository } from './gitRepository';
+import { repoRelativePath } from './repoRelativePath';
 import { GIT_SHOW_SCHEME, parseGitShowUri } from './gitShowContentProvider';
 
 /** The URI schemes blame works for: files on disk and file revisions this extension opened. */
@@ -28,10 +28,8 @@ export async function resolveBlameTarget(uri: vscode.Uri): Promise<BlameTarget |
   if (!repo) {
     return undefined;
   }
-  return {
-    repoRoot: repo.rootFsPath,
-    relativePath: path.relative(repo.rootFsPath, uri.fsPath).split(path.sep).join('/'),
-  };
+  const relativePath = await repoRelativePath(repo.rootFsPath, uri.fsPath);
+  return relativePath === undefined ? undefined : { repoRoot: repo.rootFsPath, relativePath };
 }
 
 export function blameTarget(

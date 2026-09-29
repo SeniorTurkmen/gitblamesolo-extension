@@ -10,6 +10,8 @@ import { getLineDiffHunk, getParentLine } from '../../src/git/gitDiff';
 import { getLineHistory } from '../../src/git/gitLineHistory';
 import { repositoryGitConfigPath } from '../../src/git/gitConfigFiles';
 import { getCommitDetails } from '../../src/git/gitLog';
+import { repoRelativePath } from '../../src/git/repoRelativePath';
+import { removeRepo } from '../fixtures/tempRepo';
 import { clearRemoteCaches, getCommitLink, getCurrentUserEmail } from '../../src/git/gitRemote';
 
 function git(repoRoot: string, args: string[]): void {
@@ -24,27 +26,6 @@ function initRepo(prefix: string): string {
   git(repoRoot, ['config', 'user.name', 'Test User']);
   git(repoRoot, ['config', 'core.autocrlf', 'false']);
   return repoRoot;
-}
-
-function makeWritable(dir: string): void {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const entryPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      makeWritable(entryPath);
-    } else {
-      fs.chmodSync(entryPath, 0o666);
-    }
-  }
-}
-
-/**
- * Deletes a test repository. Git writes object files read-only, and on
- * Windows the Node in VS Code's extension host can't delete read-only files,
- * so make them writable first.
- */
-function removeRepo(repoRoot: string): void {
-  makeWritable(repoRoot);
-  fs.rmSync(repoRoot, { recursive: true, force: true });
 }
 
 function relativeTo(repoRoot: string, filePath: string): string {
@@ -443,5 +424,38 @@ describe('repository config file', () => {
     } finally {
       removeRepo(outside);
     }
+  });
+});
+
+describe('repository-relative path', () => {
+  let repoRoot: string;
+  let link: string;
+
+  before(() => {
+    repoRoot = initRepo('gitblamesolo-relative-');
+    fs.mkdirSync(path.join(repoRoot, 'src'));
+    link = `${repoRoot}-link`;
+    // A junction needs no special rights on Windows; the type is ignored elsewhere.
+    fs.symlinkSync(repoRoot, link, 'junction');
+  });
+
+  after(() => {
+    fs.unlinkSync(link);
+    removeRepo(repoRoot);
+  });
+
+  it('is the path below the root, with forward slashes', async () => {
+    assert.strictEqual(await repoRelativePath(repoRoot, path.join(repoRoot, 'src', 'a.ts')), 'src/a.ts');
+  });
+
+  it('follows a symlink to the repository, as git reports the root with symlinks resolved', async () => {
+    const realRoot = fs.realpathSync.native(repoRoot);
+    assert.strictEqual(await repoRelativePath(realRoot, path.join(link, 'src', 'a.ts')), 'src/a.ts');
+    assert.strictEqual(await repoRelativePath(link, path.join(realRoot, 'src', 'new-file.ts')), 'src/new-file.ts');
+  });
+
+  it('is undefined outside the repository', async () => {
+    assert.strictEqual(await repoRelativePath(repoRoot, path.join(os.tmpdir(), 'elsewhere.ts')), undefined);
+    assert.strictEqual(await repoRelativePath(repoRoot, repoRoot), undefined);
   });
 });

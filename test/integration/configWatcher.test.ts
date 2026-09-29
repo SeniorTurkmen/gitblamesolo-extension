@@ -5,6 +5,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { repositoryGitConfigPath } from '../../src/git/gitConfigFiles';
 import { watchFile } from '../../src/git/repositoryWatcher';
+import { removeRepo } from '../fixtures/tempRepo';
 
 // Needs the VS Code API, so it only runs in the extension host (`vscode-test`).
 describe('git config file watching', () => {
@@ -16,7 +17,7 @@ describe('git config file watching', () => {
   });
 
   after(() => {
-    fs.rmSync(repoRoot, { recursive: true, force: true });
+    removeRepo(repoRoot);
   });
 
   it('notices `git config` and `git remote` changing the repository config outside the workspace', async () => {
