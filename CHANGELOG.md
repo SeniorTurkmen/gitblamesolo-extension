@@ -4,12 +4,12 @@
 
 ## 0.1.0
 
-- Hover'daki "What changed" bölümü yeniden tasarlandı: VS Code codicon'ları, `+N`/`-N` diff istatistiği ve bölümleri ayıran çizgiler. Diff gövdesi renkli bir kod bloğu olarak kalıyor.
-- Hover, satırı son değiştiren commit'in yalnızca o satırını değil, aynı hunk'taki tüm ardışık değişikliği gösteriyor.
-- Hover'dan **"Open in Diff Editor"** ve commit panelindeki her dosyadan **"Open Diff"** ile VS Code'un native diff editörü açılıyor (önceki commit ↔ bu commit). Yeniden adlandırılan dosyalarda sol taraf eski yolu kullanıyor.
-- **"View changed files"** commit'in değiştirdiği dosyaları renkli diff'leriyle bir panelde listeliyor. Panel bir satırdan açıldıysa o satır işaretlenip kendisine kaydırılıyor. Uzun diff'ler 400 satırda kırpılıyor.
-- Her hunk için **"Revert Hunk"**: `git apply --reverse` ile yalnızca o bloğu geri alır. Kaydedilmemiş değişiklik varsa veya hunk güncel dosyayla uyuşmuyorsa dosyaya dokunmadan hata verir; her seferinde onay ister.
+- Redesigned the hover's "What changed" section: VS Code codicons, a `+N`/`-N` diff stat, and rules separating the sections. The diff body is still a colored code block.
+- The hover shows the whole contiguous change in the same hunk, not only the single line from the commit that last changed it.
+- **"Open in Diff Editor"** in the hover and **"Open Diff"** on each file in the commit panel open VS Code's native diff editor (parent commit ↔ this commit). For renamed files, the left side uses the old path.
+- **"View changed files"** lists every file the commit changed, with colored diffs, in a panel. If the panel was opened from a line, that line is highlighted and scrolled into view. Long diffs are truncated at 400 lines.
+- **"Revert Hunk"** on each hunk: reverts only that block with `git apply --reverse`. If the file has unsaved changes or the hunk no longer matches the current file, it reports an error without touching the file. It always asks for confirmation first.
 
 ## 0.0.1
 
-- İlk sürüm: aktif satır için inline git blame anotasyonu, tüm satırlar için hover'da tam commit detayı, commit'lenmemiş satırlar için mtime tabanlı zaman gösterimi.
+- Initial release: inline git blame annotation for the active line, full commit details on hover for every line, and mtime-based timestamps for uncommitted lines.
