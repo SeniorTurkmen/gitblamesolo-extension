@@ -7,7 +7,7 @@ import { GitBlameSoloConfig, isExcluded } from '../config';
 import { BLAMEABLE_SCHEMES, blameTarget, resolveBlameTarget } from '../git/blameTarget';
 import { getLineDiffHunk } from '../git/gitDiff';
 import { getCommitDetails } from '../git/gitLog';
-import { getCommitLink } from '../git/gitRemote';
+import { getCommitLink, pullRequestLabel } from '../git/gitRemote';
 import { formatAuthor } from '../util/authorFormat';
 import { formatDate } from '../util/dateFormat';
 import { countDiffStats, parseDiffHunkLines } from '../util/diffRender';
@@ -41,9 +41,20 @@ function buildBlamePreviousCommandUri(
   return `command:gitBlameSolo.blamePreviousRevision?${args}`;
 }
 
-function buildOpenDiffCommandUri(sha: string, repoRoot: string, relativePath: string, oldRelativePath?: string): string {
-  const args = encodeURIComponent(JSON.stringify([sha, repoRoot, relativePath, oldRelativePath]));
+function buildOpenDiffCommandUri(
+  sha: string,
+  repoRoot: string,
+  relativePath: string,
+  oldRelativePath: string | undefined,
+  line: number,
+): string {
+  const args = encodeURIComponent(JSON.stringify([sha, repoRoot, relativePath, oldRelativePath, line]));
   return `command:gitBlameSolo.openDiff?${args}`;
+}
+
+function buildLineHistoryCommandUri(sha: string, repoRoot: string, relativePath: string, line: number): string {
+  const args = encodeURIComponent(JSON.stringify([sha, repoRoot, relativePath, line]));
+  return `command:gitBlameSolo.showLineHistory?${args}`;
 }
 
 /** The short SHA with a button that copies the full one. */
@@ -66,6 +77,7 @@ function newMarkdown(): vscode.MarkdownString {
       'gitBlameSolo.openDiff',
       'gitBlameSolo.copyCommitHash',
       'gitBlameSolo.blamePreviousRevision',
+      'gitBlameSolo.showLineHistory',
     ],
   };
   return md;
@@ -162,7 +174,11 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       getCommitDetails(blame.sha, repoRoot),
     );
     const diffHunk = await diffHunkPromise;
-    const remoteLink = await getCommitLink(repoRoot, blame.sha);
+    const remoteLink = await getCommitLink(
+      repoRoot,
+      blame.sha,
+      commit ? `${commit.summary}\n\n${commit.body}` : blame.summary,
+    );
 
     if (token.isCancellationRequested) {
       return undefined;
@@ -175,7 +191,7 @@ export class BlameHoverProvider implements vscode.HoverProvider {
         `$(account) ${escapeAngleBrackets(formatAuthor(blame.authorName, blame.authorEmail, config.showAuthorEmail))} &nbsp;&nbsp; $(clock) ${formatDate(blame.authorTimestamp, 'absolute')}\n\n`,
       );
       appendSha(md, blame.sha);
-      this.appendDiff(md, diffHunk, blame.sha, repoRoot, blame.filename, blame.previous?.filename);
+      this.appendDiff(md, diffHunk, blame.sha, repoRoot, blame.filename, blame.previous?.filename, blame.originalLine);
       return new vscode.Hover(md, range);
     }
 
@@ -184,11 +200,15 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     md.appendMarkdown(
       `$(account) ${escapeAngleBrackets(formatAuthor(commit.authorName, commit.authorEmail, config.showAuthorEmail))} &nbsp;&nbsp; $(clock) ${formatDate(commit.authorTimestamp, 'absolute')}\n\n`,
     );
+    if (commit.coAuthors.length > 0) {
+      const names = commit.coAuthors.map((p) => formatAuthor(p.name, p.email, config.showAuthorEmail)).join(', ');
+      md.appendMarkdown(`$(organization) Co-authored by ${escapeAngleBrackets(names)}\n\n`);
+    }
     if (commit.body) {
       md.appendMarkdown(`${commit.body}\n\n`);
     }
     appendSha(md, commit.sha);
-    this.appendDiff(md, diffHunk, commit.sha, repoRoot, blame.filename, blame.previous?.filename);
+    this.appendDiff(md, diffHunk, commit.sha, repoRoot, blame.filename, blame.previous?.filename, blame.originalLine);
 
     md.appendMarkdown('\n\n---\n\n');
     const fileCount = commit.files.length;
@@ -202,6 +222,8 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       blame.filename,
     );
     md.appendMarkdown(`$(files) [View changed files (${fileLabel})](${commandUri})`);
+    const historyUri = buildLineHistoryCommandUri(blame.sha, repoRoot, blame.filename, blame.originalLine);
+    md.appendMarkdown(` &nbsp;&nbsp; $(list-unordered) [Line history](${historyUri} "Every commit that changed this line")`);
     if (blame.previous) {
       const previousUri = buildBlamePreviousCommandUri(
         blame.sha,
@@ -218,6 +240,10 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     }
     if (remoteLink) {
       md.appendMarkdown(` &nbsp;&nbsp; $(globe) [Open on ${remoteLink.provider}](${remoteLink.url})`);
+      if (remoteLink.pullRequest) {
+        const label = pullRequestLabel(remoteLink.provider, remoteLink.pullRequest.number);
+        md.appendMarkdown(` &nbsp;&nbsp; $(git-pull-request) [${label}](${remoteLink.pullRequest.url})`);
+      }
     }
     return new vscode.Hover(md, range);
   }
@@ -229,6 +255,7 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     repoRoot: string,
     relativePath: string,
     oldRelativePath: string | undefined,
+    line: number,
   ): void {
     if (!diffHunk) {
       return;
@@ -246,7 +273,7 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       .filter(Boolean)
       .join(' &nbsp; ');
 
-    const openDiffUri = buildOpenDiffCommandUri(sha, repoRoot, relativePath, oldRelativePath);
+    const openDiffUri = buildOpenDiffCommandUri(sha, repoRoot, relativePath, oldRelativePath, line);
 
     md.appendMarkdown('\n\n---\n\n');
     md.appendMarkdown(`$(diff) **What changed**${stats ? ` &nbsp; ${stats}` : ''}\n`);

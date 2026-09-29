@@ -7,6 +7,7 @@ import { applyPatchReverse } from '../../src/git/gitApply';
 import { blameFile, toBlameInfo } from '../../src/git/gitBlame';
 import { buildHunkPatch, getCommitDiff, isRevertibleHunk } from '../../src/git/gitCommitDiff';
 import { getLineDiffHunk, getParentLine } from '../../src/git/gitDiff';
+import { getLineHistory } from '../../src/git/gitLineHistory';
 import { getCommitDetails } from '../../src/git/gitLog';
 import { clearRemoteCaches, getCommitLink, getCurrentUserEmail } from '../../src/git/gitRemote';
 
@@ -24,17 +25,25 @@ function initRepo(prefix: string): string {
   return repoRoot;
 }
 
+function makeWritable(dir: string): void {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const entryPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      makeWritable(entryPath);
+    } else {
+      fs.chmodSync(entryPath, 0o666);
+    }
+  }
+}
+
 /**
- * Deletes a test repository. On Windows a just-exited git process or a virus
- * scanner can briefly keep the directory open, so retry, and don't fail the
- * suite over a leftover temp directory.
+ * Deletes a test repository. Git writes object files read-only, and on
+ * Windows the Node in VS Code's extension host can't delete read-only files,
+ * so make them writable first.
  */
 function removeRepo(repoRoot: string): void {
-  try {
-    fs.rmSync(repoRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
-  } catch (err) {
-    console.warn(`Could not remove ${repoRoot}: ${String(err)}`);
-  }
+  makeWritable(repoRoot);
+  fs.rmSync(repoRoot, { recursive: true, force: true });
 }
 
 function relativeTo(repoRoot: string, filePath: string): string {
@@ -352,6 +361,26 @@ describe('blame previous revision', () => {
     assert.strictEqual(await getParentLine({ ...options, line: 3 }), 2);
     assert.strictEqual(await getParentLine({ ...options, line: 4 }), 3);
     assert.strictEqual(await getParentLine({ ...options, line: 0 }), 0);
+  });
+
+  it('lists every commit that changed a line, following the rename', async () => {
+    const history = await getLineHistory({ repoRoot, sha: editSha, relativePath: 'new.txt', line: 3 });
+
+    assert.deepStrictEqual(
+      history!.map((entry) => [entry.sha, entry.path, entry.line]),
+      [
+        [editSha, 'new.txt', 3],
+        [firstSha, 'old.txt', 2],
+      ],
+    );
+    assert.strictEqual(history![1].oldPath, undefined);
+  });
+
+  it('returns undefined when the line history cannot be read', async () => {
+    assert.strictEqual(
+      await getLineHistory({ repoRoot, sha: editSha, relativePath: 'missing.txt', line: 0 }),
+      undefined,
+    );
   });
 
   it('keeps the line when the diff cannot be computed', async () => {
