@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fixed: uncommitted lines showed the file's last save time as if it were when the line changed, so a line typed a moment ago in a file saved 12 days ago read "Uncommitted changes, 12 days ago". The annotation now says "file saved 12 days ago", or "(file not saved)" while the file has unsaved changes, and the hover says the same.
 - A copy button next to the commit hash in the hover and the commit details panel copies the full hash.
 - Added **Git Blame Solo: Change Setting…**, which lists every setting with its current value and changes or resets the one you pick, without opening the Settings editor.
 - The author's email is shown next to their name in the hover. Turn it off with **Git Blame Solo: Hide Author Email** or `gitBlameSolo.showAuthorEmail`. The inline annotation and status bar stay name-only.

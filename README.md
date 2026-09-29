@@ -56,7 +56,7 @@ Jane Doe, 3 days ago • Fix race condition in session refresh
 
 ### Uncommitted changes, even before you save
 
-When a line hasn't been committed yet, the annotation says **"Uncommitted changes"** along with when the file was last modified.
+When a line hasn't been committed yet, the annotation says **"Uncommitted changes"**. Git keeps no time for uncommitted lines, so the annotation adds when the file was last saved (*file saved 3 days ago*), or *(file not saved)* while the file has unsaved changes.
 
 Blame is computed against the **live editor buffer**: the extension pipes the buffer's contents to `git blame --contents -`. Lines you just typed are flagged correctly **before you save**, and line numbers never drift out of sync with what's on disk.
 
@@ -168,7 +168,7 @@ For example, to show the short hash first with an absolute date:
 
 ## Known limitations
 
-- The timestamp shown for uncommitted lines is the file's **last save time on disk** (`mtime`), not the time of each individual keystroke.
+- The time shown for uncommitted lines is when the file was last saved, not when that line changed. While the file has unsaved changes, no time is shown.
 - Between saves, any line you edit reads as uncommitted, even if you change it back to its committed text. Saving the file corrects it.
 - The remote URL and your `user.email` are read once per repository. After changing them with `git config` or `git remote`, run **Git Blame Solo: Refresh**.
 - Files larger than `gitBlameSolo.maxFileSizeKB` are skipped.

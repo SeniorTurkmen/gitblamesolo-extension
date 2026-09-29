@@ -118,10 +118,14 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       config.hoverTrigger === 'annotation' ? new vscode.Range(lineRange.end, lineRange.end) : lineRange;
 
     if (blame.isUncommitted) {
-      const mtimeSeconds = await this.getMtimeSeconds(document.uri.fsPath);
       const md = newMarkdown();
       md.appendMarkdown(`$(circle-large-filled) **${config.uncommittedLabel}**\n\n`);
-      md.appendMarkdown(`$(clock) Last modified ${formatDate(mtimeSeconds, 'absolute')}`);
+      if (document.isDirty) {
+        md.appendMarkdown('$(edit) File has unsaved changes');
+      } else {
+        const mtimeSeconds = await this.getMtimeSeconds(document.uri.fsPath);
+        md.appendMarkdown(`$(save) File saved ${formatDate(mtimeSeconds, 'absolute')}`);
+      }
       return new vscode.Hover(md, range);
     }
 

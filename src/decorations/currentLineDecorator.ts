@@ -6,7 +6,7 @@ import { blameFile } from '../git/gitBlame';
 import { getCurrentUserEmail } from '../git/gitRemote';
 import { resolveRepository } from '../git/gitRepository';
 import { BlameInfo } from '../types';
-import { formatDate, formatDecorationText } from '../util/dateFormat';
+import { formatDecorationText, formatUncommittedText } from '../util/dateFormat';
 
 export interface CurrentLineDecoratorDeps {
   blameCache: BlameCache;
@@ -125,11 +125,11 @@ export class CurrentLineBlameDecorator implements vscode.Disposable {
     let inlineLabel: string;
     let statusLabel: string;
     if (blame.isUncommitted) {
-      const mtimeSeconds = await this.getMtimeSeconds(document.uri.fsPath);
+      const savedAt = document.isDirty ? undefined : await this.getMtimeSeconds(document.uri.fsPath);
       if (myGeneration !== this.generation) {
         return;
       }
-      inlineLabel = `${config.uncommittedLabel}, ${formatDate(mtimeSeconds, config.dateStyle)}`;
+      inlineLabel = formatUncommittedText(config.uncommittedLabel, savedAt, config.dateStyle);
       statusLabel = config.uncommittedLabel;
     } else {
       const author = await this.authorLabel(blame, repo.rootFsPath, config);
