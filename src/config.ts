@@ -21,6 +21,9 @@ export interface GitBlameSoloConfig {
   statusBarTemplate: string;
   blameOptions: BlameOptions;
   exclude: string[];
+  fileBlameEnabled: boolean;
+  fileBlameTemplate: string;
+  fileBlameHeatmap: boolean;
 }
 
 export function getConfig(): GitBlameSoloConfig {
@@ -47,6 +50,9 @@ export function getConfig(): GitBlameSoloConfig {
       ignoreRevsFile: cfg.get<string>('ignoreRevsFile', '.git-blame-ignore-revs'),
     },
     exclude: cfg.get<string[]>('exclude', []),
+    fileBlameEnabled: cfg.get<boolean>('fileBlame.enabled', false),
+    fileBlameTemplate: cfg.get<string>('fileBlame.template', '${author}, ${date}'),
+    fileBlameHeatmap: cfg.get<boolean>('fileBlame.heatmap', true),
   };
 }
 

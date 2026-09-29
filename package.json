@@ -76,7 +76,7 @@
             "line"
           ],
           "enumDescriptions": [
-            "Show the hover only when the mouse is over the inline annotation at the end of the current line. Requires gitBlameSolo.enabled.",
+            "Show the hover only when the mouse is over the inline annotation at the end of the current line (requires gitBlameSolo.enabled) or over the file blame column.",
             "Show the hover when the mouse is anywhere over any line."
           ],
           "default": "annotation",
@@ -137,6 +137,21 @@
           "default": ".git-blame-ignore-revs",
           "description": "File at the repository root listing commits to skip in blame, such as bulk reformatting (git blame --ignore-revs-file). Ignored when the file doesn't exist. Leave empty to disable."
         },
+        "gitBlameSolo.fileBlame.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show blame for every line of the file in a column before the text. Only the first line of each block of lines from the same commit is labelled."
+        },
+        "gitBlameSolo.fileBlame.template": {
+          "type": "string",
+          "default": "${author}, ${date}",
+          "description": "Template for the file blame column. Placeholders: ${author} ${date} ${message} ${hash}. The column is cut at 50 characters."
+        },
+        "gitBlameSolo.fileBlame.heatmap": {
+          "type": "boolean",
+          "default": true,
+          "description": "Tint the file blame column by how recent each line's commit is, from blue for the oldest commits in the file to orange for the newest."
+        },
         "gitBlameSolo.exclude": {
           "type": "array",
           "items": {
@@ -155,6 +170,10 @@
       {
         "command": "gitBlameSolo.toggle",
         "title": "Git Blame Solo: Toggle Inline Blame"
+      },
+      {
+        "command": "gitBlameSolo.toggleFileBlame",
+        "title": "Git Blame Solo: Toggle File Blame"
       },
       {
         "command": "gitBlameSolo.showCommitDetails",

@@ -44,6 +44,13 @@ export class BlameCache {
     return toBlameInfo(entry.lines, line);
   }
 
+  /** Blame for every line of the document, indexed by 0-based line. */
+  async getFile(document: DocumentLike, compute: () => Promise<FileBlame | undefined>): Promise<FileBlame | undefined> {
+    const entry = this.entryFor(document, compute);
+    await entry.promise;
+    return entry.lines;
+  }
+
   /** Shifts a settled blame to match an edited document. */
   applyChanges(document: DocumentLike, changes: readonly ContentChangeLike[]): void {
     const key = document.uri.toString();

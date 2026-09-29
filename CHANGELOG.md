@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added **file blame**: blame for every line of the file in a column before the text, with a heatmap tinting each line by how recent its commit is. Off by default; turn it on with `gitBlameSolo.fileBlame.enabled` or **Git Blame Solo: Toggle File Blame**, and format it with `gitBlameSolo.fileBlame.template`. Hovering the column shows the blame hover for that line.
 - Fixed: files opened through a symlinked folder got no blame, because git reports the repository root with symlinks resolved.
 - A line you edit and then change back to its committed text shows its commit again about a second after you stop typing, instead of reading as uncommitted until you save. The buffer is blamed again whenever typing pauses.
 - The remote URL and your `user.email` are re-read when the repository's config file or your global git config changes (for example after `git remote set-url` or `git config user.email`), so **Git Blame Solo: Refresh** is no longer needed for that.

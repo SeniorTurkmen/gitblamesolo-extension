@@ -8,6 +8,7 @@ import { changeSetting } from './commands/changeSetting';
 import { showLineHistory } from './commands/lineHistory';
 import { getConfig, onConfigChanged } from './config';
 import { CurrentLineBlameDecorator } from './decorations/currentLineDecorator';
+import { FileBlameDecorator } from './decorations/fileBlameDecorator';
 import { blameTarget, resolveBlameTarget } from './git/blameTarget';
 import { GitCliError, runGit } from './git/gitCli';
 import { getCommitDiff } from './git/gitCommitDiff';
@@ -44,8 +45,16 @@ export function activate(context: vscode.ExtensionContext): void {
   const commitDiffCache = new CommitDiffCache();
   const lineDiffCache = new LineDiffCache();
   const decorator = new CurrentLineBlameDecorator({ blameCache, getConfig });
+  const fileBlame = new FileBlameDecorator({ blameCache, getConfig });
 
-  context.subscriptions.push(decorator);
+  /** Redraws the current line's blame and the file blame column after blame or settings changed. */
+  function redraw(): void {
+    decorator.refreshNow();
+    fileBlame.refreshAll();
+  }
+
+  context.subscriptions.push(decorator, fileBlame);
+  context.subscriptions.push(vscode.window.onDidChangeVisibleTextEditors(() => fileBlame.refreshAll()));
   context.subscriptions.push(
     vscode.window.onDidChangeTextEditorSelection((e) => decorator.onDidChangeSelection(e)),
   );
@@ -74,8 +83,8 @@ export function activate(context: vscode.ExtensionContext): void {
         const replaced = await blameCache.refresh(document, () =>
           blameTarget(target, document, getConfig().blameOptions),
         );
-        if (replaced && vscode.window.activeTextEditor?.document === document) {
-          decorator.refreshNow();
+        if (replaced) {
+          redraw();
         }
       }, REBLAME_DELAY_MS),
     );
@@ -95,6 +104,7 @@ export function activate(context: vscode.ExtensionContext): void {
         scheduleReblame(e.document);
       }
       decorator.onDidChangeDocument(e);
+      fileBlame.onDidChangeDocument(e.document);
     }),
   );
   context.subscriptions.push(
@@ -102,9 +112,7 @@ export function activate(context: vscode.ExtensionContext): void {
       // Re-blame right away rather than waiting for a pending re-blame; uncommitted lines also show the new save time.
       cancelReblame(document);
       blameCache.delete(document.uri);
-      if (vscode.window.activeTextEditor?.document === document) {
-        decorator.refreshNow();
-      }
+      redraw();
     }),
   );
   context.subscriptions.push(
@@ -125,7 +133,7 @@ export function activate(context: vscode.ExtensionContext): void {
       if (blameSettings.some((key) => e.affectsConfiguration(`gitBlameSolo.${key}`))) {
         blameCache.clear();
       }
-      decorator.refreshNow();
+      redraw();
     }),
   );
   /** Drops everything read from git that can go stale: blame, repository roots, remote URL, and user.email. */
@@ -133,19 +141,19 @@ export function activate(context: vscode.ExtensionContext): void {
     invalidateRepositoryCache();
     clearRemoteCaches();
     blameCache.clear();
-    decorator.refreshNow();
+    redraw();
   }
 
   context.subscriptions.push(
     new RepositoryWatcher({
       onHeadChanged: () => {
         blameCache.clear();
-        decorator.refreshNow();
+        redraw();
       },
       onRepositoriesChanged: resetCaches,
       onConfigChanged: () => {
         clearRemoteCaches();
-        decorator.refreshNow();
+        redraw();
       },
     }),
   );
@@ -193,6 +201,14 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('gitBlameSolo.changeSetting', () => changeSetting(context.extension)),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('gitBlameSolo.toggleFileBlame', async () => {
+      const cfg = vscode.workspace.getConfiguration('gitBlameSolo');
+      const current = cfg.get<boolean>('fileBlame.enabled', false);
+      await cfg.update('fileBlame.enabled', !current, vscode.ConfigurationTarget.Global);
+    }),
   );
 
   context.subscriptions.push(
@@ -445,6 +461,7 @@ export function activate(context: vscode.ExtensionContext): void {
   if (vscode.window.activeTextEditor) {
     decorator.onDidChangeActiveEditor(vscode.window.activeTextEditor);
   }
+  fileBlame.refreshAll();
 }
 
 export function deactivate(): void {

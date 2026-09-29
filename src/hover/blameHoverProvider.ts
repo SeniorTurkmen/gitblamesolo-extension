@@ -105,6 +105,14 @@ function isOverAnnotation(document: vscode.TextDocument, position: vscode.Positi
   );
 }
 
+/**
+ * The file blame column is injected before each line's text, and VS Code
+ * reports a hover over it at the line's first column.
+ */
+function isOverFileBlame(position: vscode.Position, config: GitBlameSoloConfig): boolean {
+  return config.fileBlameEnabled && position.character === 0;
+}
+
 export class BlameHoverProvider implements vscode.HoverProvider {
   constructor(private readonly deps: BlameHoverProviderDeps) {}
 
@@ -120,7 +128,8 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     if (document.getText().length > config.maxFileSizeBytes || isExcluded(document, config)) {
       return undefined;
     }
-    if (config.hoverTrigger === 'annotation' && !isOverAnnotation(document, position, config)) {
+    const overFileBlame = isOverFileBlame(position, config);
+    if (config.hoverTrigger === 'annotation' && !overFileBlame && !isOverAnnotation(document, position, config)) {
       return undefined;
     }
 
@@ -144,7 +153,11 @@ export class BlameHoverProvider implements vscode.HoverProvider {
 
     const lineRange = document.lineAt(line).range;
     const range =
-      config.hoverTrigger === 'annotation' ? new vscode.Range(lineRange.end, lineRange.end) : lineRange;
+      config.hoverTrigger === 'line'
+        ? lineRange
+        : overFileBlame
+          ? new vscode.Range(lineRange.start, lineRange.start)
+          : new vscode.Range(lineRange.end, lineRange.end);
 
     if (blame.isUncommitted) {
       const md = newMarkdown();
