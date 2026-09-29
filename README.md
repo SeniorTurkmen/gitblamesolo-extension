@@ -57,8 +57,6 @@ When a line hasn't been committed yet, the annotation says **"Uncommitted change
 
 Blame is computed against the **live editor buffer**: the extension pipes the buffer's contents to `git blame --contents -`. Lines you just typed are flagged correctly **before you save**, and line numbers never drift out of sync with what's on disk.
 
-![Uncommitted line annotation](docs/images/uncommitted.png)
-
 ### Rich hover: the commit and what it changed
 
 Hover any line (not just the active one) to open a popup containing:
