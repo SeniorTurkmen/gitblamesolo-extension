@@ -218,6 +218,19 @@ describe('renderCommitDetailsHtml', () => {
       assert.strictEqual(count(html, 'file-section-focus"'), 1);
     });
 
+    it('folds the other files and leaves the focused one open', () => {
+      const html = render({ commit: files, diffs: [diff('src/b.ts'), diff('src/new.ts')], focusPath: 'src/new.ts' });
+      assert.strictEqual(count(html, '<div class="file-section folded">'), 1);
+      assert.strictEqual(count(html, '<div class="file-section file-section-focus">'), 1);
+      assert.strictEqual(count(html, 'aria-expanded="false"'), 1);
+    });
+
+    it('folds nothing when the focused file is not in the commit', () => {
+      const html = render({ commit: files, diffs: [], focusPath: 'src/elsewhere.ts' });
+      assert.strictEqual(count(html, '<div class="file-section folded">'), 0);
+      assert.strictEqual(count(html, 'aria-expanded="false"'), 0);
+    });
+
     it('marks nothing without a focused file', () => {
       assert.strictEqual(count(render({ commit: files }), 'file-section-focus"'), 0);
     });

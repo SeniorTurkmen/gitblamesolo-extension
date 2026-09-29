@@ -41,8 +41,14 @@ export function renderCommitDetailsHtml(view: CommitDetailsView, nonce: string):
   const csp = `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';`;
   const diffsByPath = new Map(diffs.map((d) => [d.path, d]));
 
+  // Opened for one file of several, the other files start folded so that file stands out.
+  const hasFocusFile = commit.files.some((f) => isFocusFile(view, f));
+  const foldOthers = hasFocusFile && commit.files.length > 1;
+
   const sectionsHtml = commit.files.length
-    ? commit.files.map((f) => renderFileSection(view, f, diffsByPath.get(f.path))).join('\n')
+    ? commit.files
+        .map((f) => renderFileSection(view, f, diffsByPath.get(f.path), foldOthers && !isFocusFile(view, f)))
+        .join('\n')
     : '<p class="empty">No file changes recorded.</p>';
 
   return `<!DOCTYPE html>
@@ -415,18 +421,27 @@ ${sectionsHtml}
 </html>`;
 }
 
-function renderFileSection(view: CommitDetailsView, file: CommitFileChange, diff: FileDiff | undefined): string {
+function isFocusFile(view: CommitDetailsView, file: CommitFileChange): boolean {
+  return view.focusPath !== undefined && (view.focusPath === file.path || view.focusPath === file.oldPath);
+}
+
+function renderFileSection(
+  view: CommitDetailsView,
+  file: CommitFileChange,
+  diff: FileDiff | undefined,
+  folded: boolean,
+): string {
   const statusLetter = file.status;
   const statusLabel = STATUS_LABELS[statusLetter] ?? statusLetter;
   const oldPathHtml = file.oldPath
     ? `<span class="old-path">${escapeHtml(file.oldPath)} &rarr;</span>`
     : '';
 
-  const isFocus = view.focusPath !== undefined && (view.focusPath === file.path || view.focusPath === file.oldPath);
+  const isFocus = isFocusFile(view, file);
   const focusBadge = isFocus ? '<span class="focus-badge" title="The commit details were opened for this file">Opened from this file</span>' : '';
 
   const header = `<div class="file-header" data-path="${escapeHtml(file.path)}" title="Click to open ${escapeHtml(statusLabel)}">
-    <button class="fold-btn" title="Fold this file" aria-label="Fold or unfold this file" aria-expanded="true">${CHEVRON_ICON}</button>
+    <button class="fold-btn" title="${folded ? 'Unfold' : 'Fold'} this file" aria-label="Fold or unfold this file" aria-expanded="${!folded}">${CHEVRON_ICON}</button>
     <span class="status status-${escapeHtml(statusLetter)}">${escapeHtml(statusLetter)}</span>
     <span class="path">${oldPathHtml}${escapeHtml(file.path)}</span>
     ${focusBadge}
@@ -434,7 +449,8 @@ function renderFileSection(view: CommitDetailsView, file: CommitFileChange, diff
   </div>`;
 
   const body = renderDiffBody(file.path, diff, sourceCommitLineFor(view.source, file.path));
-  return `<div class="file-section${isFocus ? ' file-section-focus' : ''}">${header}<div class="file-body">${body}</div></div>`;
+  const classes = ['file-section', ...(isFocus ? ['file-section-focus'] : []), ...(folded ? ['folded'] : [])];
+  return `<div class="${classes.join(' ')}">${header}<div class="file-body">${body}</div></div>`;
 }
 
 function renderRemoteButtons(link: RemoteCommitLink | undefined): string {
