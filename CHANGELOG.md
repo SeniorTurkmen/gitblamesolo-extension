@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.1
 
 - Added **Blame previous revision** to the hover and as a command: it opens the file as it was before the commit that last changed the line in a diff editor against the current file, at the matching line. Blame and the hover work in that past revision too, so you can keep stepping back through a line's history. Renames are followed.
 - Fixed: for a file renamed since the commit, the hover's diff and **Open in Diff Editor** used the current path, which didn't exist in that commit, and the commit panel didn't highlight the line you started from.
