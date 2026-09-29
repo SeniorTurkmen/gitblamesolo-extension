@@ -79,18 +79,21 @@ export function activate(context: vscode.ExtensionContext): void {
       decorator.refreshNow();
     }),
   );
+  /** Drops everything read from git that can go stale: blame, repository roots, remote URL, and user.email. */
+  function resetCaches(): void {
+    invalidateRepositoryCache();
+    clearRemoteCaches();
+    blameCache.clear();
+    decorator.refreshNow();
+  }
+
   context.subscriptions.push(
     new RepositoryWatcher({
       onHeadChanged: () => {
         blameCache.clear();
         decorator.refreshNow();
       },
-      onRepositoriesChanged: () => {
-        invalidateRepositoryCache();
-        clearRemoteCaches();
-        blameCache.clear();
-        decorator.refreshNow();
-      },
+      onRepositoriesChanged: resetCaches,
     }),
   );
   context.subscriptions.push(
@@ -108,6 +111,13 @@ export function activate(context: vscode.ExtensionContext): void {
         await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, title, { preview: true });
       },
     ),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('gitBlameSolo.refresh', () => {
+      resetCaches();
+      void vscode.window.setStatusBarMessage('Git Blame Solo: refreshed', 3000);
+    }),
   );
 
   context.subscriptions.push(

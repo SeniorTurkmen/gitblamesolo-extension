@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added the **Git Blame Solo: Refresh** command, which clears cached blame, repository roots, the remote URL, and `user.email`.
 - Added **Open on GitHub/GitLab/Bitbucket/Azure DevOps** to the hover and the commit details panel, and the **Git Blame Solo: Open Commit on Remote** command. Other hosts get a `/commit/<sha>` link.
 - Added an optional status bar item (`gitBlameSolo.statusBar.enabled`, `gitBlameSolo.statusBar.template`) that opens the commit details when clicked.
 - Your own commits read as "You" in the annotation and status bar (`gitBlameSolo.currentUserLabel`).
