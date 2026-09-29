@@ -44,7 +44,15 @@ describe('file blame', () => {
   after(async () => {
     await settings().update('fileBlame.enabled', undefined, vscode.ConfigurationTarget.Global);
     await vscode.commands.executeCommand('workbench.action.closeAllEditors');
-    removeRepo(repoRoot);
+    try {
+      removeRepo(repoRoot);
+    } catch (err) {
+      // On Windows, VS Code's git extension keeps watching the repository the
+      // test opened, which locks its folder; leave it to the temp folder cleanup.
+      if (process.platform !== 'win32') {
+        throw err;
+      }
+    }
   });
 
   it('is off by default', () => {
