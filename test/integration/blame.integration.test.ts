@@ -7,6 +7,7 @@ import { applyPatchReverse } from '../../src/git/gitApply';
 import { blameFile, toBlameInfo } from '../../src/git/gitBlame';
 import { buildHunkPatch, getCommitDiff, isRevertibleHunk } from '../../src/git/gitCommitDiff';
 import { getLineDiffHunk, getParentLine } from '../../src/git/gitDiff';
+import { getLineHistory } from '../../src/git/gitLineHistory';
 import { getCommitDetails } from '../../src/git/gitLog';
 import { clearRemoteCaches, getCommitLink, getCurrentUserEmail } from '../../src/git/gitRemote';
 
@@ -352,6 +353,26 @@ describe('blame previous revision', () => {
     assert.strictEqual(await getParentLine({ ...options, line: 3 }), 2);
     assert.strictEqual(await getParentLine({ ...options, line: 4 }), 3);
     assert.strictEqual(await getParentLine({ ...options, line: 0 }), 0);
+  });
+
+  it('lists every commit that changed a line, following the rename', async () => {
+    const history = await getLineHistory({ repoRoot, sha: editSha, relativePath: 'new.txt', line: 3 });
+
+    assert.deepStrictEqual(
+      history!.map((entry) => [entry.sha, entry.path, entry.line]),
+      [
+        [editSha, 'new.txt', 3],
+        [firstSha, 'old.txt', 2],
+      ],
+    );
+    assert.strictEqual(history![1].oldPath, undefined);
+  });
+
+  it('returns undefined when the line history cannot be read', async () => {
+    assert.strictEqual(
+      await getLineHistory({ repoRoot, sha: editSha, relativePath: 'missing.txt', line: 0 }),
+      undefined,
+    );
   });
 
   it('keeps the line when the diff cannot be computed', async () => {

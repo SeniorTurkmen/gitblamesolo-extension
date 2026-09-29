@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Added **Line history** to the hover and as a command: it lists every commit that changed the current line, newest first, following it across edits and renames (`git log -L`). Picking a commit opens its change in the diff editor at the line; buttons open the commit details or copy the hash.
+- **Open in Diff Editor** in the hover now opens at the line instead of the top of the file.
+
 ## 0.1.1
 
 - Added **Blame previous revision** to the hover and as a command: it opens the file as it was before the commit that last changed the line in a diff editor against the current file, at the matching line. Blame and the hover work in that past revision too, so you can keep stepping back through a line's history. Renames are followed.

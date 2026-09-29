@@ -5,6 +5,7 @@ import { CommitCache } from './cache/commitCache';
 import { CommitDiffCache } from './cache/commitDiffCache';
 import { LineDiffCache } from './cache/lineDiffCache';
 import { changeSetting } from './commands/changeSetting';
+import { showLineHistory } from './commands/lineHistory';
 import { getConfig, onConfigChanged } from './config';
 import { CurrentLineBlameDecorator } from './decorations/currentLineDecorator';
 import { blameTarget, resolveBlameTarget } from './git/blameTarget';
@@ -105,12 +106,17 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'gitBlameSolo.openDiff',
-      async (sha: string, repoRoot: string, relativePath: string, oldRelativePath?: string) => {
+      async (sha: string, repoRoot: string, relativePath: string, oldRelativePath?: string, line?: number) => {
         const leftUri = buildGitShowUri(`${sha}^`, repoRoot, oldRelativePath ?? relativePath);
         const rightUri = buildGitShowUri(sha, repoRoot, relativePath);
         const fileName = path.basename(relativePath);
         const title = `${fileName} (${sha.slice(0, 7)}^ ↔ ${sha.slice(0, 7)})`;
-        await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, title, { preview: true });
+        // `line` is 0-based in the commit's version of the file, the diff's right side.
+        const position = typeof line === 'number' ? new vscode.Position(line, 0) : undefined;
+        await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, title, {
+          preview: true,
+          selection: position ? new vscode.Range(position, position) : undefined,
+        });
       },
     ),
   );
@@ -343,6 +349,30 @@ export function activate(context: vscode.ExtensionContext): void {
             `Git Blame Solo: could not open ${parentPath} at ${parentSha.slice(0, 7)}.`,
           );
         }
+      },
+    ),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'gitBlameSolo.showLineHistory',
+      async (shaArg?: string, repoRootArg?: string, relativePathArg?: string, lineArg?: number) => {
+        if (shaArg && repoRootArg && relativePathArg && lineArg !== undefined) {
+          await showLineHistory({ sha: shaArg, repoRoot: repoRootArg, relativePath: relativePathArg, line: lineArg });
+          return;
+        }
+        const target = await blameAtCursor();
+        if (!target) {
+          return;
+        }
+        // Trace from the commit that last changed the line, at the line's position in that commit:
+        // later commits didn't touch it, and this works for unsaved edits and past revisions alike.
+        await showLineHistory({
+          sha: target.blame.sha,
+          repoRoot: target.repoRoot,
+          relativePath: target.blame.filename,
+          line: target.blame.originalLine,
+        });
       },
     ),
   );

@@ -23,6 +23,7 @@ It does one thing, stays out of the way, and has no dependencies beyond the `git
   - [Rich hover: the commit and what it changed](#rich-hover-the-commit-and-what-it-changed)
   - [Native diff editor](#native-diff-editor)
   - [Commit details panel](#commit-details-panel)
+  - [Line history](#line-history)
   - [Step back through a line's history](#step-back-through-a-lines-history)
   - [Revert a single hunk](#revert-a-single-hunk)
   - [Commands](#commands)
@@ -70,7 +71,7 @@ Hover the inline annotation at the end of the current line to open a popup conta
 | **Header** | Commit subject, author (with email), absolute date, and short hash with a button that copies the full hash |
 | **Body** | The full commit message body, if there is one |
 | **What changed** | A colored `diff` of the **entire changed block** the line belongs to (every contiguous line changed in the same hunk, not only the hovered line), with an added/removed line count |
-| **Actions** | **Open in Diff Editor**, **View changed files (N files)**, **Blame previous revision** when the line existed before the commit, and **Open on GitHub** (or GitLab, Bitbucket, Azure DevOps) when the repository has a remote |
+| **Actions** | **Open in Diff Editor** (at the line), **View changed files (N files)**, **Line history**, **Blame previous revision** when the line existed before the commit, and **Open on GitHub** (or GitLab, Bitbucket, Azure DevOps) when the repository has a remote |
 
 This shows you the context of a change right away: you see the rest of the block that changed with the line, not just the one line in isolation.
 
@@ -95,6 +96,12 @@ By default the popup only opens over the annotation, so hovering your code for o
 - **The line you started from is highlighted** inside its file's diff, so you don't lose your place in a large commit. Clicking the highlighted line takes you back to that spot in the editor.
 
 ![Commit details panel listing every changed file with diffs](docs/images/commit-panel.png)
+
+### Line history
+
+**Line history** in the hover (or the **Git Blame Solo: Show Line History** command) lists every commit that changed the current line, newest first, using `git log -L`. The line is followed across edits and renames, and the list works for unsaved edits and past revisions too.
+
+Type to filter by message, author, or hash. Pick a commit to open its change to the file in the diff editor, at the line. The buttons on each entry open the commit details panel or copy the commit hash. The list shows up to 100 commits.
 
 ### Step back through a line's history
 
@@ -124,6 +131,7 @@ Open the Command Palette (<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P
 | `Git Blame Solo: Toggle Inline Blame` | Turns the end-of-line annotation on or off (saved to your user settings). |
 | `Git Blame Solo: Show Commit Details` | Opens the commit details panel for the line under the cursor. Also available from the editor's right-click menu. |
 | `Git Blame Solo: Copy Commit Hash` | Copies the full hash of the commit that last changed the current line to the clipboard. |
+| `Git Blame Solo: Show Line History` | Lists every commit that changed the current line. Picking one opens its change in the diff editor. |
 | `Git Blame Solo: Blame Previous Revision` | Compares the file as it was before the commit that last changed the current line with its current version, at that line. |
 | `Git Blame Solo: Open Commit on Remote` | Opens the commit that last changed the current line on GitHub, GitLab, Bitbucket, or Azure DevOps. |
 | `Git Blame Solo: Refresh` | Re-reads everything cached from git: blame, repository roots, the remote URL, and your `user.email`. Use it after changing your git config or remotes. |
