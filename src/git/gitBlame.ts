@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import * as path from 'path';
 import { GitCliError, runGit } from './gitCli';
 import { BlameInfo, ZERO_SHA } from '../types';
@@ -21,10 +22,20 @@ export interface BlameLine {
 /** Blame for every line of a file, indexed by 0-based line in the blamed contents. */
 export type FileBlame = BlameLine[];
 
+export type MovedLinesDetection = 'off' | 'withinFile' | 'acrossFiles';
+
+export interface BlameOptions {
+  ignoreWhitespace: boolean;
+  detectMovedLines: MovedLinesDetection;
+  /** Path relative to the repository root; skipped when empty or missing. */
+  ignoreRevsFile: string;
+}
+
 export interface BlameFileOptions {
   filePath: string;
   content: string;
   repoRoot: string;
+  options?: BlameOptions;
 }
 
 const HEADER_PATTERN = /^([0-9a-f]{40,64}) (\d+) (\d+) (\d+)$/;
@@ -118,11 +129,41 @@ export function toBlameInfo(fileBlame: FileBlame | undefined, line: number): Bla
   return { ...entry.commit, line, originalLine: entry.originalLine };
 }
 
+export function buildBlameArgs(relativePath: string, options: BlameOptions | undefined, ignoreRevsPath?: string): string[] {
+  const args = ['blame', '--incremental'];
+  if (options?.ignoreWhitespace) {
+    args.push('-w');
+  }
+  if (options?.detectMovedLines === 'withinFile') {
+    args.push('-M');
+  } else if (options?.detectMovedLines === 'acrossFiles') {
+    args.push('-M', '-C');
+  }
+  if (ignoreRevsPath) {
+    args.push('--ignore-revs-file', ignoreRevsPath);
+  }
+  args.push('--contents', '-', '--', relativePath);
+  return args;
+}
+
+async function existingIgnoreRevsPath(repoRoot: string, file: string | undefined): Promise<string | undefined> {
+  if (!file) {
+    return undefined;
+  }
+  const absolute = path.resolve(repoRoot, file);
+  try {
+    return (await fs.promises.stat(absolute)).isFile() ? absolute : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function blameFile(options: BlameFileOptions): Promise<FileBlame | undefined> {
   const relativePath = path.relative(options.repoRoot, options.filePath).split(path.sep).join('/');
+  const ignoreRevsPath = await existingIgnoreRevsPath(options.repoRoot, options.options?.ignoreRevsFile);
 
   try {
-    const output = await runGit(['blame', '--incremental', '--contents', '-', '--', relativePath], {
+    const output = await runGit(buildBlameArgs(relativePath, options.options, ignoreRevsPath), {
       cwd: options.repoRoot,
       input: options.content,
     });

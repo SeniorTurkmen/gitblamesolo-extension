@@ -4,10 +4,11 @@ import * as vscode from 'vscode';
 import { BlameCache } from '../cache/blameCache';
 import { CommitCache } from '../cache/commitCache';
 import { LineDiffCache } from '../cache/lineDiffCache';
-import { GitBlameSoloConfig } from '../config';
+import { GitBlameSoloConfig, isExcluded } from '../config';
 import { blameFile } from '../git/gitBlame';
 import { getLineDiffHunk } from '../git/gitDiff';
 import { getCommitDetails } from '../git/gitLog';
+import { getCommitLink } from '../git/gitRemote';
 import { resolveRepository } from '../git/gitRepository';
 import { formatDate } from '../util/dateFormat';
 import { countDiffStats, parseDiffHunkLines } from '../util/diffRender';
@@ -54,7 +55,7 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     if (!config.hoverEnabled || document.uri.scheme !== 'file') {
       return undefined;
     }
-    if (document.getText().length > config.maxFileSizeBytes) {
+    if (document.getText().length > config.maxFileSizeBytes || isExcluded(document, config)) {
       return undefined;
     }
 
@@ -68,7 +69,12 @@ export class BlameHoverProvider implements vscode.HoverProvider {
 
     const line = position.line;
     const blame = await this.deps.blameCache.getLine(document, line, () =>
-      blameFile({ filePath: document.uri.fsPath, content: document.getText(), repoRoot: repo.rootFsPath }),
+      blameFile({
+        filePath: document.uri.fsPath,
+        content: document.getText(),
+        repoRoot: repo.rootFsPath,
+        options: config.blameOptions,
+      }),
     );
 
     if (!blame || token.isCancellationRequested) {
@@ -101,6 +107,7 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       getCommitDetails(blame.sha, repo.rootFsPath),
     );
     const diffHunk = await diffHunkPromise;
+    const remoteLink = await getCommitLink(repo.rootFsPath, blame.sha);
 
     if (token.isCancellationRequested) {
       return undefined;
@@ -139,6 +146,9 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       blame.originalLine + 1,
     );
     md.appendMarkdown(`$(files) [View changed files (${fileLabel})](${commandUri})`);
+    if (remoteLink) {
+      md.appendMarkdown(` &nbsp;&nbsp; $(globe) [Open on ${remoteLink.provider}](${remoteLink.url})`);
+    }
     return new vscode.Hover(md, range);
   }
 

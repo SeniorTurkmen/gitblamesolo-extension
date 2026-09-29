@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Added **Open on GitHub/GitLab/Bitbucket/Azure DevOps** to the hover and the commit details panel, and the **Git Blame Solo: Open Commit on Remote** command. Other hosts get a `/commit/<sha>` link.
+- Added an optional status bar item (`gitBlameSolo.statusBar.enabled`, `gitBlameSolo.statusBar.template`) that opens the commit details when clicked.
+- Your own commits read as "You" in the annotation and status bar (`gitBlameSolo.currentUserLabel`).
+- Commits listed in `.git-blame-ignore-revs` are skipped when the file exists (`gitBlameSolo.ignoreRevsFile`).
+- Added `gitBlameSolo.ignoreWhitespace` (`-w`) and `gitBlameSolo.detectMovedLines` (`-M`/`-C`).
+- Added `gitBlameSolo.exclude` to turn off blame for files matching glob patterns.
 - Blame is computed for the whole file with a single `git blame --incremental` and cached per document, instead of one `git` process per line. Edits shift the cached result (edited lines read as uncommitted) and saving re-blames the file, so typing no longer runs `git`.
 - Fixed: the inline blame for a line could go blank after a hover was dismissed quickly. The cancelled git call cached `undefined`; calls whose results go into the shared caches are no longer cancelled.
 - Fixed: blame went stale after a commit, amend, checkout, pull, or reset (for example, freshly committed lines still showed "Uncommitted changes"). The blame cache is now cleared whenever a repository's HEAD moves.

@@ -78,6 +78,54 @@
           "type": "string",
           "default": "Uncommitted changes",
           "description": "Label shown for lines that have not been committed yet."
+        },
+        "gitBlameSolo.currentUserLabel": {
+          "type": "string",
+          "default": "You",
+          "description": "Shown instead of the author's name in the inline annotation and status bar when the author's email matches your git user.email. Leave empty to always show the name."
+        },
+        "gitBlameSolo.statusBar.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show blame for the current line in the status bar. Clicking it opens the commit details."
+        },
+        "gitBlameSolo.statusBar.template": {
+          "type": "string",
+          "default": "${author}, ${date}",
+          "description": "Template for the status bar item. Placeholders: ${author} ${date} ${message} ${hash}"
+        },
+        "gitBlameSolo.ignoreWhitespace": {
+          "type": "boolean",
+          "default": false,
+          "description": "Ignore whitespace-only changes when finding the commit that last changed a line (git blame -w)."
+        },
+        "gitBlameSolo.detectMovedLines": {
+          "type": "string",
+          "enum": [
+            "off",
+            "withinFile",
+            "acrossFiles"
+          ],
+          "enumDescriptions": [
+            "Attribute moved lines to the commit that moved them.",
+            "Follow lines moved or copied within the same file (git blame -M).",
+            "Also follow lines moved or copied from other files in the same commit (git blame -C). Slower on large repositories."
+          ],
+          "default": "off",
+          "description": "Attribute moved or copied lines to the commit that originally wrote them."
+        },
+        "gitBlameSolo.ignoreRevsFile": {
+          "type": "string",
+          "default": ".git-blame-ignore-revs",
+          "description": "File at the repository root listing commits to skip in blame, such as bulk reformatting (git blame --ignore-revs-file). Ignored when the file doesn't exist. Leave empty to disable."
+        },
+        "gitBlameSolo.exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Glob patterns for files that get no inline annotation, status bar entry, or hover, for example \"**/*.min.js\"."
         }
       }
     },
@@ -93,6 +141,10 @@
       {
         "command": "gitBlameSolo.copyCommitHash",
         "title": "Git Blame Solo: Copy Commit Hash"
+      },
+      {
+        "command": "gitBlameSolo.openCommitOnRemote",
+        "title": "Git Blame Solo: Open Commit on Remote"
       }
     ],
     "menus": {

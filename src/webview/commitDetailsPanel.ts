@@ -4,12 +4,14 @@ import { applyPatchReverse } from '../git/gitApply';
 import { GitCliError } from '../git/gitCli';
 import { buildHunkPatch, isRevertibleHunk } from '../git/gitCommitDiff';
 import { CommitDetails, CommitFileChange, DiffHunk, DiffLine, FileChangeStatus, FileDiff, SourceLocation } from '../types';
+import { RemoteCommitLink } from '../git/gitRemote';
 import { formatDate } from '../util/dateFormat';
 
 type WebviewMessage =
   | { type: 'openFile'; path: string }
   | { type: 'openSource' }
   | { type: 'openDiff'; path: string; oldPath?: string }
+  | { type: 'openRemote' }
   | { type: 'revertHunk'; path: string; hunkIndex: number };
 
 const STATUS_LABELS: Record<FileChangeStatus, string> = {
@@ -31,11 +33,18 @@ export class CommitDetailsPanel {
   private repoRoot: string;
   private commitSha = '';
   private source: SourceLocation | undefined;
+  private remoteLink: RemoteCommitLink | undefined;
   private diffs: FileDiff[] = [];
 
-  static show(commit: CommitDetails, diffs: FileDiff[], repoRoot: string, source?: SourceLocation): void {
+  static show(
+    commit: CommitDetails,
+    diffs: FileDiff[],
+    repoRoot: string,
+    source?: SourceLocation,
+    remoteLink?: RemoteCommitLink,
+  ): void {
     if (CommitDetailsPanel.current) {
-      CommitDetailsPanel.current.update(commit, diffs, repoRoot, source);
+      CommitDetailsPanel.current.update(commit, diffs, repoRoot, source, remoteLink);
       CommitDetailsPanel.current.panel.reveal(vscode.ViewColumn.Beside);
       return;
     }
@@ -46,7 +55,7 @@ export class CommitDetailsPanel {
       vscode.ViewColumn.Beside,
       { enableScripts: true, retainContextWhenHidden: true },
     );
-    CommitDetailsPanel.current = new CommitDetailsPanel(panel, commit, diffs, repoRoot, source);
+    CommitDetailsPanel.current = new CommitDetailsPanel(panel, commit, diffs, repoRoot, source, remoteLink);
   }
 
   private constructor(
@@ -55,6 +64,7 @@ export class CommitDetailsPanel {
     diffs: FileDiff[],
     repoRoot: string,
     source: SourceLocation | undefined,
+    remoteLink: RemoteCommitLink | undefined,
   ) {
     this.panel = panel;
     this.repoRoot = repoRoot;
@@ -66,13 +76,20 @@ export class CommitDetailsPanel {
       this.disposables,
     );
 
-    this.update(commit, diffs, repoRoot, source);
+    this.update(commit, diffs, repoRoot, source, remoteLink);
   }
 
-  private update(commit: CommitDetails, diffs: FileDiff[], repoRoot: string, source: SourceLocation | undefined): void {
+  private update(
+    commit: CommitDetails,
+    diffs: FileDiff[],
+    repoRoot: string,
+    source: SourceLocation | undefined,
+    remoteLink: RemoteCommitLink | undefined,
+  ): void {
     this.repoRoot = repoRoot;
     this.commitSha = commit.sha;
     this.source = source;
+    this.remoteLink = remoteLink;
     this.diffs = diffs;
     this.panel.title = `Commit ${commit.sha.slice(0, 7)}`;
     this.panel.webview.html = this.renderHtml(commit, diffs);
@@ -95,6 +112,12 @@ export class CommitDetailsPanel {
         message.path,
         message.oldPath,
       );
+      return;
+    }
+    if (message.type === 'openRemote') {
+      if (this.remoteLink) {
+        await vscode.env.openExternal(vscode.Uri.parse(this.remoteLink.url));
+      }
       return;
     }
     if (message.type === 'revertHunk') {
@@ -209,6 +232,9 @@ export class CommitDetailsPanel {
     }
     .hash {
       font-family: var(--vscode-editor-font-family, monospace);
+    }
+    .remote-btn {
+      margin-left: 0.5rem;
     }
     .body {
       white-space: pre-wrap;
@@ -367,6 +393,11 @@ export class CommitDetailsPanel {
     ${escapeHtml(commit.authorName)} &lt;${escapeHtml(commit.authorEmail)}&gt; &bull;
     ${escapeHtml(formatDate(commit.authorTimestamp, 'absolute'))} &bull;
     <span class="hash">${escapeHtml(commit.sha)}</span>
+    ${
+      this.remoteLink
+        ? `<button class="diff-editor-btn remote-btn" title="${escapeHtml(this.remoteLink.url)}">Open on ${escapeHtml(this.remoteLink.provider)}</button>`
+        : ''
+    }
   </div>
   ${commit.body ? `<div class="body">${escapeHtml(commit.body)}</div>` : ''}
   <h3>Changed files (${commit.files.length})</h3>
@@ -384,7 +415,10 @@ export class CommitDetailsPanel {
         vscode.postMessage({ type: 'openSource' });
       });
     });
-    document.querySelectorAll('.diff-editor-btn').forEach((el) => {
+    document.querySelectorAll('.remote-btn').forEach((el) => {
+      el.addEventListener('click', () => vscode.postMessage({ type: 'openRemote' }));
+    });
+    document.querySelectorAll('.diff-editor-btn:not(.remote-btn)').forEach((el) => {
       el.addEventListener('click', (e) => {
         e.stopPropagation();
         vscode.postMessage({

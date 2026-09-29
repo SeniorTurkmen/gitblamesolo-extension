@@ -8,6 +8,7 @@ import { blameFile, toBlameInfo } from '../../src/git/gitBlame';
 import { buildHunkPatch, getCommitDiff, isRevertibleHunk } from '../../src/git/gitCommitDiff';
 import { getLineDiffHunk } from '../../src/git/gitDiff';
 import { getCommitDetails } from '../../src/git/gitLog';
+import { clearRemoteCaches, getCommitLink, getCurrentUserEmail } from '../../src/git/gitRemote';
 
 function git(repoRoot: string, args: string[]): void {
   execFileSync('git', args, { cwd: repoRoot });
@@ -199,5 +200,75 @@ describe('git line-diff block replacement', () => {
       !contentLines.includes(' pad1'),
       'padding far from the change should be outside the hunk body',
     );
+  });
+});
+
+describe('git blame options', () => {
+  let repoRoot: string;
+  let filePath: string;
+  let firstSha: string;
+  let reformatSha: string;
+
+  before(() => {
+    repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gitblamesolo-options-'));
+    git(repoRoot, ['init', '--initial-branch=main']);
+    git(repoRoot, ['config', 'user.email', 'test@example.com']);
+    git(repoRoot, ['config', 'user.name', 'Test User']);
+
+    filePath = path.join(repoRoot, 'code.txt');
+    fs.writeFileSync(filePath, 'alpha\nbeta\n');
+    git(repoRoot, ['add', 'code.txt']);
+    git(repoRoot, ['commit', '-m', 'Write code']);
+    firstSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim();
+
+    fs.writeFileSync(filePath, '  alpha\n  beta\n');
+    git(repoRoot, ['commit', '-am', 'Reindent']);
+    reformatSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim();
+  });
+
+  after(() => {
+    fs.rmSync(repoRoot, { recursive: true, force: true });
+  });
+
+  const defaults = { ignoreWhitespace: false, detectMovedLines: 'off' as const, ignoreRevsFile: '' };
+
+  it('attributes a reindented line to the reformat commit by default', async () => {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const blame = toBlameInfo(await blameFile({ filePath, content, repoRoot, options: defaults }), 0);
+    assert.strictEqual(blame!.sha, reformatSha);
+  });
+
+  it('looks through whitespace-only changes with ignoreWhitespace', async () => {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const options = { ...defaults, ignoreWhitespace: true };
+    const blame = toBlameInfo(await blameFile({ filePath, content, repoRoot, options }), 0);
+    assert.strictEqual(blame!.sha, firstSha);
+  });
+
+  it('skips commits listed in the ignore-revs file, and ignores a missing file', async () => {
+    fs.writeFileSync(path.join(repoRoot, '.git-blame-ignore-revs'), `${reformatSha}\n`);
+    const content = fs.readFileSync(filePath, 'utf8');
+
+    const skipped = toBlameInfo(
+      await blameFile({ filePath, content, repoRoot, options: { ...defaults, ignoreRevsFile: '.git-blame-ignore-revs' } }),
+      0,
+    );
+    assert.strictEqual(skipped!.sha, firstSha);
+
+    const missing = toBlameInfo(
+      await blameFile({ filePath, content, repoRoot, options: { ...defaults, ignoreRevsFile: 'no-such-file' } }),
+      0,
+    );
+    assert.strictEqual(missing!.sha, reformatSha);
+  });
+
+  it('reads the default remote and the current user email', async () => {
+    clearRemoteCaches();
+    assert.strictEqual(await getCommitLink(repoRoot, firstSha), undefined);
+
+    git(repoRoot, ['remote', 'add', 'origin', 'git@github.com:owner/repo.git']);
+    clearRemoteCaches();
+    assert.strictEqual((await getCommitLink(repoRoot, firstSha))!.url, `https://github.com/owner/repo/commit/${firstSha}`);
+    assert.strictEqual(await getCurrentUserEmail(repoRoot), 'test@example.com');
   });
 });

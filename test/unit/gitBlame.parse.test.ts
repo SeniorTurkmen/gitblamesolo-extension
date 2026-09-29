@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { parseIncrementalBlame, toBlameInfo } from '../../src/git/gitBlame';
+import { buildBlameArgs, parseIncrementalBlame, toBlameInfo } from '../../src/git/gitBlame';
 import { ZERO_SHA } from '../../src/types';
 import { INCREMENTAL_BLAME_OUTPUT } from '../fixtures/git-samples';
 
@@ -53,5 +53,39 @@ describe('parseIncrementalBlame', () => {
   it('returns nothing for empty output or a line past the end', () => {
     assert.deepStrictEqual(parseIncrementalBlame(''), []);
     assert.strictEqual(toBlameInfo(lines, 5), undefined);
+  });
+});
+
+describe('buildBlameArgs', () => {
+  it('blames the buffer from stdin with no extra flags by default', () => {
+    assert.deepStrictEqual(buildBlameArgs('src/a.ts', undefined), [
+      'blame',
+      '--incremental',
+      '--contents',
+      '-',
+      '--',
+      'src/a.ts',
+    ]);
+  });
+
+  it('adds whitespace, move detection, and ignore-revs flags', () => {
+    const args = buildBlameArgs(
+      'src/a.ts',
+      { ignoreWhitespace: true, detectMovedLines: 'acrossFiles', ignoreRevsFile: '.git-blame-ignore-revs' },
+      '/repo/.git-blame-ignore-revs',
+    );
+    assert.deepStrictEqual(args, [
+      'blame',
+      '--incremental',
+      '-w',
+      '-M',
+      '-C',
+      '--ignore-revs-file',
+      '/repo/.git-blame-ignore-revs',
+      '--contents',
+      '-',
+      '--',
+      'src/a.ts',
+    ]);
   });
 });

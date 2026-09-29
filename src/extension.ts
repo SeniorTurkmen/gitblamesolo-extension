@@ -10,10 +10,12 @@ import { GitCliError, runGit } from './git/gitCli';
 import { blameFile } from './git/gitBlame';
 import { getCommitDiff } from './git/gitCommitDiff';
 import { getCommitDetails } from './git/gitLog';
+import { clearRemoteCaches, getCommitLink } from './git/gitRemote';
 import { invalidateRepositoryCache, resolveRepository } from './git/gitRepository';
 import { RepositoryWatcher } from './git/repositoryWatcher';
 import { buildGitShowUri, GIT_SHOW_SCHEME, GitShowContentProvider } from './git/gitShowContentProvider';
 import { BlameHoverProvider } from './hover/blameHoverProvider';
+import { BlameInfo } from './types';
 import { CommitDetailsPanel } from './webview/commitDetailsPanel';
 
 async function warnIfGitMissing(): Promise<void> {
@@ -68,7 +70,15 @@ export function activate(context: vscode.ExtensionContext): void {
       new BlameHoverProvider({ blameCache, commitCache, lineDiffCache, getConfig }),
     ),
   );
-  context.subscriptions.push(onConfigChanged(() => decorator.refreshNow()));
+  context.subscriptions.push(
+    onConfigChanged((e) => {
+      const blameSettings = ['ignoreWhitespace', 'detectMovedLines', 'ignoreRevsFile'];
+      if (blameSettings.some((key) => e.affectsConfiguration(`gitBlameSolo.${key}`))) {
+        blameCache.clear();
+      }
+      decorator.refreshNow();
+    }),
+  );
   context.subscriptions.push(
     new RepositoryWatcher({
       onHeadChanged: () => {
@@ -77,6 +87,7 @@ export function activate(context: vscode.ExtensionContext): void {
       },
       onRepositoriesChanged: () => {
         invalidateRepositoryCache();
+        clearRemoteCaches();
         blameCache.clear();
         decorator.refreshNow();
       },
@@ -107,6 +118,40 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
+  /** Blames the active editor's cursor line, telling the user why when there is no commit to act on. */
+  async function blameAtCursor(): Promise<
+    { blame: BlameInfo; repoRoot: string; document: vscode.TextDocument; line: number } | undefined
+  > {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+      return undefined;
+    }
+    const document = editor.document;
+    const line = editor.selection.active.line;
+    const repo = await resolveRepository(document.uri);
+    if (!repo) {
+      void vscode.window.showInformationMessage('Git Blame Solo: this file is not inside a git repository.');
+      return undefined;
+    }
+    const blame = await blameCache.getLine(document, line, () =>
+      blameFile({
+        filePath: document.uri.fsPath,
+        content: document.getText(),
+        repoRoot: repo.rootFsPath,
+        options: getConfig().blameOptions,
+      }),
+    );
+    if (!blame) {
+      void vscode.window.showInformationMessage('Git Blame Solo: no blame information for this line.');
+      return undefined;
+    }
+    if (blame.isUncommitted) {
+      void vscode.window.showInformationMessage('Git Blame Solo: this line has uncommitted changes.');
+      return undefined;
+    }
+    return { blame, repoRoot: repo.rootFsPath, document, line };
+  }
+
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'gitBlameSolo.showCommitDetails',
@@ -124,33 +169,15 @@ export function activate(context: vscode.ExtensionContext): void {
         let sourceCommitLine = sourceCommitLineArg;
 
         if (!sha || !repoRoot) {
-          const editor = vscode.window.activeTextEditor;
-          if (!editor) {
+          const target = await blameAtCursor();
+          if (!target) {
             return;
           }
-          const document = editor.document;
-          const line = editor.selection.active.line;
-          const repo = await resolveRepository(document.uri);
-          if (!repo) {
-            void vscode.window.showInformationMessage('Git Blame Solo: this file is not inside a git repository.');
-            return;
-          }
-          const blame = await blameCache.getLine(document, line, () =>
-            blameFile({ filePath: document.uri.fsPath, content: document.getText(), repoRoot: repo.rootFsPath }),
-          );
-          if (!blame) {
-            void vscode.window.showInformationMessage('Git Blame Solo: no blame information for this line.');
-            return;
-          }
-          if (blame.isUncommitted) {
-            void vscode.window.showInformationMessage('Git Blame Solo: this line has uncommitted changes.');
-            return;
-          }
-          sha = blame.sha;
-          repoRoot = repo.rootFsPath;
-          sourceFilePath = document.uri.fsPath;
-          sourceLine = line;
-          sourceCommitLine = blame.originalLine + 1;
+          sha = target.blame.sha;
+          repoRoot = target.repoRoot;
+          sourceFilePath = target.document.uri.fsPath;
+          sourceLine = target.line;
+          sourceCommitLine = target.blame.originalLine + 1;
         }
 
         const commit = await commitCache.getOrCompute(sha, () => getCommitDetails(sha!, repoRoot!));
@@ -158,37 +185,50 @@ export function activate(context: vscode.ExtensionContext): void {
           void vscode.window.showWarningMessage(`Git Blame Solo: could not load details for commit ${sha}.`);
           return;
         }
-        const diffs = await commitDiffCache.getOrCompute(sha, () => getCommitDiff(sha!, repoRoot!));
+        const [diffs, remoteLink] = await Promise.all([
+          commitDiffCache.getOrCompute(sha, () => getCommitDiff(sha!, repoRoot!)),
+          getCommitLink(repoRoot, sha),
+        ]);
         const source =
           sourceFilePath && sourceCommitLine !== undefined
             ? { filePath: sourceFilePath, line: sourceLine ?? 0, commitLine: sourceCommitLine }
             : undefined;
-        CommitDetailsPanel.show(commit, diffs, repoRoot, source);
+        CommitDetailsPanel.show(commit, diffs, repoRoot, source, remoteLink);
       },
     ),
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('gitBlameSolo.openCommitOnRemote', async (shaArg?: string, repoRootArg?: string) => {
+      let sha = shaArg;
+      let repoRoot = repoRootArg;
+      if (!sha || !repoRoot) {
+        const target = await blameAtCursor();
+        if (!target) {
+          return;
+        }
+        sha = target.blame.sha;
+        repoRoot = target.repoRoot;
+      }
+      const link = await getCommitLink(repoRoot, sha);
+      if (!link) {
+        void vscode.window.showInformationMessage(
+          'Git Blame Solo: this repository has no remote with a recognizable web address.',
+        );
+        return;
+      }
+      await vscode.env.openExternal(vscode.Uri.parse(link.url));
+    }),
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('gitBlameSolo.copyCommitHash', async () => {
-      const editor = vscode.window.activeTextEditor;
-      if (!editor) {
+      const target = await blameAtCursor();
+      if (!target) {
         return;
       }
-      const document = editor.document;
-      const line = editor.selection.active.line;
-      const repo = await resolveRepository(document.uri);
-      if (!repo) {
-        return;
-      }
-      const blame = await blameCache.getLine(document, line, () =>
-        blameFile({ filePath: document.uri.fsPath, content: document.getText(), repoRoot: repo.rootFsPath }),
-      );
-      if (!blame || blame.isUncommitted) {
-        void vscode.window.showInformationMessage('Git Blame Solo: no commit hash to copy for this line.');
-        return;
-      }
-      await vscode.env.clipboard.writeText(blame.sha);
-      void vscode.window.showInformationMessage(`Copied ${blame.sha.slice(0, 7)} to clipboard.`);
+      await vscode.env.clipboard.writeText(target.blame.sha);
+      void vscode.window.showInformationMessage(`Copied ${target.blame.sha.slice(0, 7)} to clipboard.`);
     }),
   );
 
