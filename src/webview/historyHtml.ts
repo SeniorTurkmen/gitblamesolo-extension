@@ -70,7 +70,7 @@ export function renderHistoryRows(
       const author = isCurrentUser ? options.currentUserLabel : entry.authorName;
       const graphCell = graph?.[i] ? `<span class="graph-cell">${renderGraphSvg(graph[i])}</span>` : '';
       return (
-        `<div class="row" data-sha="${escapeHtml(entry.sha)}" tabindex="-1">` +
+        `<div class="row" data-sha="${escapeHtml(entry.sha)}"${entry.path ? ` data-path="${escapeHtml(entry.path)}"` : ''} tabindex="-1">` +
         graphCell +
         `<span class="summary">${renderRefs(entry.refs)}<span class="text">${escapeHtml(entry.summary)}</span></span>` +
         `<span class="author" title="${escapeHtml(`${entry.authorName} <${entry.authorEmail}>`)}">${escapeHtml(author)}</span>` +
@@ -279,7 +279,7 @@ export function renderHistoryShell(view: HistoryShellView, nonce: string): strin
     if (e.target.closest('.copy')) {
       vscode.postMessage({ type: 'copySha', sha: row.dataset.sha });
     } else {
-      vscode.postMessage({ type: 'openCommit', sha: row.dataset.sha });
+      vscode.postMessage({ type: 'openCommit', sha: row.dataset.sha, path: row.dataset.path });
     }
   });
   list.addEventListener('keydown', (e) => {
@@ -287,7 +287,7 @@ export function renderHistoryShell(view: HistoryShellView, nonce: string): strin
     if (!row) return;
     const next = e.key === 'ArrowDown' ? row.nextElementSibling : e.key === 'ArrowUp' ? row.previousElementSibling : null;
     if (next && next.classList.contains('row')) { e.preventDefault(); select(next); }
-    if (e.key === 'Enter') vscode.postMessage({ type: 'openCommit', sha: row.dataset.sha });
+    if (e.key === 'Enter') vscode.postMessage({ type: 'openCommit', sha: row.dataset.sha, path: row.dataset.path });
   });
 
   window.addEventListener('message', (event) => {

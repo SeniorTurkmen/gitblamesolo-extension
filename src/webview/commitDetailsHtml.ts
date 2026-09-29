@@ -11,6 +11,8 @@ export interface CommitDetailsView {
   /** Where the panel was opened from; that line is marked in its file's diff. */
   source?: SourceLocation;
   remoteLink?: RemoteCommitLink;
+  /** The file the panel was opened for, by its path in the commit; its section is marked. */
+  focusPath?: string;
 }
 
 // Codicons "copy" and "check" (CC BY 4.0), inlined because webviews don't load the icon font.
@@ -116,6 +118,21 @@ export function renderCommitDetailsHtml(view: CommitDetailsView, nonce: string):
   }
   .file-header:hover {
     background: var(--vscode-list-hoverBackground);
+  }
+  .file-section-focus {
+    border: 1px solid var(--vscode-textLink-foreground);
+    box-shadow: inset 3px 0 0 var(--vscode-textLink-foreground);
+  }
+  .file-section-focus .file-header {
+    background: var(--vscode-list-inactiveSelectionBackground, var(--vscode-editor-selectionHighlightBackground));
+  }
+  .focus-badge {
+    flex-shrink: 0;
+    padding: 0 0.4rem;
+    border-radius: 3px;
+    font-size: 0.78rem;
+    color: var(--vscode-badge-foreground);
+    background: var(--vscode-badge-background);
   }
   .status {
     flex-shrink: 0;
@@ -317,8 +334,11 @@ ${sectionsHtml}
     }
   });
   const sourceLine = document.querySelector('.diff-line-source');
+  const focusSection = document.querySelector('.file-section-focus');
   if (sourceLine) {
     sourceLine.scrollIntoView({ block: 'center' });
+  } else if (focusSection) {
+    focusSection.scrollIntoView({ block: 'start' });
   }
 </script>
 </body>
@@ -332,14 +352,18 @@ function renderFileSection(view: CommitDetailsView, file: CommitFileChange, diff
     ? `<span class="old-path">${escapeHtml(file.oldPath)} &rarr;</span>`
     : '';
 
+  const isFocus = view.focusPath !== undefined && (view.focusPath === file.path || view.focusPath === file.oldPath);
+  const focusBadge = isFocus ? '<span class="focus-badge" title="The commit details were opened for this file">Opened from this file</span>' : '';
+
   const header = `<div class="file-header" data-path="${escapeHtml(file.path)}" title="Click to open ${escapeHtml(statusLabel)}">
     <span class="status status-${escapeHtml(statusLetter)}">${escapeHtml(statusLetter)}</span>
     <span class="path">${oldPathHtml}${escapeHtml(file.path)}</span>
+    ${focusBadge}
     <button class="diff-editor-btn" data-file="${escapeHtml(file.path)}" data-old-file="${escapeHtml(file.oldPath ?? '')}" title="Open this file's change in VS Code's diff editor">Open Diff</button>
   </div>`;
 
   const body = renderDiffBody(file.path, diff, sourceCommitLineFor(view.source, file.path));
-  return `<div class="file-section">${header}${body}</div>`;
+  return `<div class="file-section${isFocus ? ' file-section-focus' : ''}">${header}${body}</div>`;
 }
 
 function renderRemoteButtons(link: RemoteCommitLink | undefined): string {

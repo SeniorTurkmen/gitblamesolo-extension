@@ -32,9 +32,10 @@ export class CommitDetailsPanel {
     repoRoot: string,
     source?: SourceLocation,
     remoteLink?: RemoteCommitLink,
+    focusPath?: string,
   ): void {
     if (CommitDetailsPanel.current) {
-      CommitDetailsPanel.current.update(commit, diffs, repoRoot, source, remoteLink);
+      CommitDetailsPanel.current.update(commit, diffs, repoRoot, source, remoteLink, focusPath);
       CommitDetailsPanel.current.panel.reveal(vscode.ViewColumn.Beside);
       return;
     }
@@ -45,7 +46,7 @@ export class CommitDetailsPanel {
       vscode.ViewColumn.Beside,
       { enableScripts: true, retainContextWhenHidden: true },
     );
-    CommitDetailsPanel.current = new CommitDetailsPanel(panel, commit, diffs, repoRoot, source, remoteLink);
+    CommitDetailsPanel.current = new CommitDetailsPanel(panel, commit, diffs, repoRoot, source, remoteLink, focusPath);
   }
 
   private constructor(
@@ -55,6 +56,7 @@ export class CommitDetailsPanel {
     repoRoot: string,
     source: SourceLocation | undefined,
     remoteLink: RemoteCommitLink | undefined,
+    focusPath: string | undefined,
   ) {
     this.panel = panel;
     this.repoRoot = repoRoot;
@@ -66,7 +68,7 @@ export class CommitDetailsPanel {
       this.disposables,
     );
 
-    this.update(commit, diffs, repoRoot, source, remoteLink);
+    this.update(commit, diffs, repoRoot, source, remoteLink, focusPath);
   }
 
   private update(
@@ -75,6 +77,7 @@ export class CommitDetailsPanel {
     repoRoot: string,
     source: SourceLocation | undefined,
     remoteLink: RemoteCommitLink | undefined,
+    focusPath: string | undefined,
   ): void {
     this.repoRoot = repoRoot;
     this.commitSha = commit.sha;
@@ -83,7 +86,7 @@ export class CommitDetailsPanel {
     this.diffs = diffs;
     this.panel.title = `Commit ${commit.sha.slice(0, 7)}`;
     const nonce = Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-    this.panel.webview.html = renderCommitDetailsHtml({ commit, diffs, source, remoteLink }, nonce);
+    this.panel.webview.html = renderCommitDetailsHtml({ commit, diffs, source, remoteLink, focusPath }, nonce);
   }
 
   private async handleMessage(message: WebviewMessage): Promise<void> {

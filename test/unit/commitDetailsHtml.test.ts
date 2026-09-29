@@ -178,4 +178,29 @@ describe('renderCommitDetailsHtml', () => {
       assert.strictEqual(count(render(), 'diff-line-source"'), 0);
     });
   });
+
+  describe('focused file', () => {
+    const files = commit({
+      files: [
+        { status: 'M', path: 'src/b.ts' },
+        { status: 'R', path: 'src/new.ts', oldPath: 'src/old.ts' },
+      ],
+    });
+
+    it('marks the section of the file the panel was opened for', () => {
+      const html = render({ commit: files, diffs: [diff('src/b.ts'), diff('src/new.ts')], focusPath: 'src/new.ts' });
+      assert.strictEqual(count(html, 'file-section-focus"'), 1);
+      assert.strictEqual(count(html, 'Opened from this file'), 1);
+      assert.ok(html.indexOf('file-section-focus"') > html.indexOf('data-path="src/b.ts"'));
+    });
+
+    it('matches a renamed file by its old path too', () => {
+      const html = render({ commit: files, diffs: [], focusPath: 'src/old.ts' });
+      assert.strictEqual(count(html, 'file-section-focus"'), 1);
+    });
+
+    it('marks nothing without a focused file', () => {
+      assert.strictEqual(count(render({ commit: files }), 'file-section-focus"'), 0);
+    });
+  });
 });

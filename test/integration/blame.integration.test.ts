@@ -488,6 +488,8 @@ describe('git history', () => {
     git(repoRoot, ['switch', '-q', '-c', 'side']);
     commit('Side work', 4000);
     git(repoRoot, ['switch', '-q', 'main']);
+    git(repoRoot, ['mv', 'a.txt', 'b.txt']);
+    commit('Rename a to b', 5000);
   });
 
   after(() => removeRepo(repoRoot));
@@ -497,15 +499,17 @@ describe('git history', () => {
     assert.ok(page);
     assert.deepStrictEqual(
       page.entries.map((e) => e.summary),
-      ['Change a', 'Add a'],
+      ['Rename a to b', 'Change a', 'Add a'],
     );
     assert.strictEqual(page.hasMore, false);
+    assert.deepStrictEqual(page.entries[1].refs, [
+      { kind: 'tag', name: 'v1' },
+    ]);
     assert.deepStrictEqual(page.entries[0].refs, [
       { kind: 'head', name: 'HEAD' },
       { kind: 'branch', name: 'main' },
-      { kind: 'tag', name: 'v1' },
     ]);
-    assert.deepStrictEqual(page.entries[0].parents, [page.entries[1].sha]);
+    assert.deepStrictEqual(page.entries[1].parents, [page.entries[2].sha]);
   });
 
   it('lists every branch and pages through them', async () => {
@@ -513,13 +517,13 @@ describe('git history', () => {
     assert.ok(first);
     assert.deepStrictEqual(
       first.entries.map((e) => e.summary),
-      ['Side work', 'Change a'],
+      ['Rename a to b', 'Side work'],
     );
     assert.strictEqual(first.hasMore, true);
-    const second = await getHistoryPage({ repoRoot, scope: { kind: 'all' }, skip: 2, limit: 2 });
+    const second = await getHistoryPage({ repoRoot, scope: { kind: 'all' }, skip: 2, limit: 3 });
     assert.deepStrictEqual(
       second?.entries.map((e) => e.summary),
-      ['Feature work', 'Add a'],
+      ['Change a', 'Feature work', 'Add a'],
     );
     assert.strictEqual(second?.hasMore, false);
   });
@@ -544,10 +548,14 @@ describe('git history', () => {
       bySearch?.entries.map((e) => e.summary),
       ['Side work', 'Feature work'],
     );
-    const byPath = await getHistoryPage({ repoRoot, scope: { kind: 'head' }, path: 'a.txt', skip: 0, limit: 10 });
+    const byPath = await getHistoryPage({ repoRoot, scope: { kind: 'head' }, path: 'b.txt', skip: 0, limit: 10 });
     assert.deepStrictEqual(
-      byPath?.entries.map((e) => e.summary),
-      ['Change a', 'Add a'],
+      byPath?.entries.map((e) => [e.summary, e.path]),
+      [
+        ['Rename a to b', 'b.txt'],
+        ['Change a', 'a.txt'],
+        ['Add a', 'a.txt'],
+      ],
     );
   });
 

@@ -264,6 +264,7 @@ export function activate(context: vscode.ExtensionContext): void {
         sourceLineArg?: number,
         sourceCommitLineArg?: number,
         sourceCommitPathArg?: string,
+        focusPathArg?: string,
       ) => {
         let sha = shaArg;
         let repoRoot = repoRootArg;
@@ -298,7 +299,7 @@ export function activate(context: vscode.ExtensionContext): void {
           sourceUri && sourceCommitPath && sourceCommitLine !== undefined
             ? { uri: sourceUri, commitPath: sourceCommitPath, line: sourceLine ?? 0, commitLine: sourceCommitLine }
             : undefined;
-        CommitDetailsPanel.show(commit, diffs, repoRoot, source, remoteLink);
+        CommitDetailsPanel.show(commit, diffs, repoRoot, source, remoteLink, focusPathArg ?? source?.commitPath);
       },
     ),
   );

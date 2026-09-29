@@ -13,7 +13,7 @@ type WebviewMessage =
   | { type: 'ready' }
   | { type: 'filter'; scope: string; search: string; author: string; path: string }
   | { type: 'more' }
-  | { type: 'openCommit'; sha: string }
+  | { type: 'openCommit'; sha: string; path?: string }
   | { type: 'copySha'; sha: string };
 
 export interface HistoryPanelSettings {
@@ -120,7 +120,17 @@ export class HistoryPanel {
         await this.load(true);
         break;
       case 'openCommit':
-        await vscode.commands.executeCommand('gitBlameSolo.showCommitDetails', message.sha, this.repoRoot);
+        // For a file's history, the commit details mark that file, by its path in the commit.
+        await vscode.commands.executeCommand(
+          'gitBlameSolo.showCommitDetails',
+          message.sha,
+          this.repoRoot,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          this.filter.path ? (message.path ?? this.filter.path) : undefined,
+        );
         break;
       case 'copySha':
         await vscode.commands.executeCommand('gitBlameSolo.copyCommitHash', message.sha);

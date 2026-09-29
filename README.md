@@ -116,6 +116,7 @@ By default the popup only opens over the annotation, so hovering your code for o
 - Click a **file header** to open that file in the editor.
 - The **Open Diff** button opens that file's change in the native diff editor.
 - **The line you started from is highlighted** inside its file's diff, so you don't lose your place in a large commit. Clicking the highlighted line takes you back to that spot in the editor.
+- **The file you came from is marked** with a colored border and an "Opened from this file" badge, and the panel scrolls to it. This works from the blame hover and from a file's history, even if the file had another name in that commit.
 
 ![Commit details panel listing every changed file with diffs](docs/images/commit-panel.png)
 
@@ -125,7 +126,7 @@ By default the popup only opens over the annotation, so hovering your code for o
 
 - **Pick which history to show:** the current branch, all branches (including remote branches and tags), or any single local or remote branch.
 - **Search** commit messages and **filter by author** (name or email). Both match the text as typed, ignoring case.
-- **File history:** **Git Blame Solo: Show File History** (the history icon in the editor title bar, or the right-click menu of a file in the Explorer, an editor tab, or the Source Control view) shows only the commits that changed that file, following renames. Clear the file chip in the toolbar to see every commit again.
+- **File history:** **Git Blame Solo: Show File History** (the history icon in the editor title bar, or the right-click menu of a file in the Explorer, an editor tab, or the Source Control view) shows only the commits that changed that file, following renames. Clear the file chip in the toolbar to see every commit again. A commit opened from a file's history marks that file in the commit details panel.
 - **Click a commit** (or press <kbd>Enter</kbd> on it) to open the commit details panel with its diffs. The button next to the hash copies it. Use the arrow keys to move between commits.
 - Commits load 200 at a time; **Load more** fetches the next page.
 

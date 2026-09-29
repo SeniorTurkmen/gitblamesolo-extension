@@ -20,6 +20,8 @@ export interface HistoryEntry {
   authorTimestamp: number;
   summary: string;
   refs: CommitRef[];
+  /** For a file's history, the file's path in this commit, which differs from the current path before a rename. */
+  path?: string;
 }
 
 /** Which commits to walk: those reachable from HEAD, from every branch, remote branch, and tag, or from one ref. */
@@ -79,12 +81,15 @@ export function parseRefs(decoration: string, remoteNames: readonly string[] = [
 export function parseHistory(output: string, remoteNames?: readonly string[]): HistoryEntry[] {
   const entries: HistoryEntry[] = [];
   for (const record of output.split(RECORD_SEP).slice(1)) {
-    const [sha, parents, authorName, authorEmail, authorTime, summary, decoration] = record
+    const [sha, parents, authorName, authorEmail, authorTime, summary, rest] = record
       .replace(/\n+$/, '')
       .split(FIELD_SEP);
     if (!sha) {
       continue;
     }
+    // With --name-only, the file names follow the decoration on lines of their own.
+    const [decoration, ...files] = (rest ?? '').split('\n');
+    const path = files.filter(Boolean).pop();
     entries.push({
       sha,
       parents: parents ? parents.split(' ') : [],
@@ -92,7 +97,8 @@ export function parseHistory(output: string, remoteNames?: readonly string[]): H
       authorEmail: authorEmail ?? '',
       authorTimestamp: parseInt(authorTime, 10) || 0,
       summary: summary ?? '',
-      refs: parseRefs(decoration ?? '', remoteNames),
+      refs: parseRefs(decoration, remoteNames),
+      ...(path ? { path } : {}),
     });
   }
   return entries;
@@ -122,7 +128,8 @@ export function buildHistoryArgs(options: Omit<HistoryPageOptions, 'repoRoot'>):
     args.push('HEAD');
   }
   if (options.path) {
-    args.push('--follow', '--', options.path);
+    // --name-only gives the file's path in each commit, which --follow tracks across renames.
+    args.push('--name-only', '--follow', '--', options.path);
   } else {
     // Keeps a ref named like a file from being read as a path.
     args.push('--');

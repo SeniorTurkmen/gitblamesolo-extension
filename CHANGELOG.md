@@ -4,6 +4,7 @@
 
 - Added the **git log**: **Git Blame Solo: Show Git Log** opens a panel with the repository's commits and a commit graph, showing branches, remote branches, and tags on their commits. Show the current branch, all branches, or a single branch; search commit messages and filter by author. Click a commit to open its details. It is also in the Source Control view's title bar.
 - Added **file history**: **Git Blame Solo: Show File History** opens the git log filtered to the commits that changed a file, following renames. It is in the editor title bar and the right-click menus of files in the Explorer, editor tabs, and the Source Control view. Hide the editor title bar buttons with `gitBlameSolo.editorTitleButtons`.
+- The commit details panel marks the file it was opened for, from a file's history or the blame hover, with a colored border and an "Opened from this file" badge, and scrolls to it. A file renamed since the commit is found by its name in the commit.
 - Added a **Toggle File Blame** button to the editor title bar.
 - Added **file blame**: blame for every line of the file in a column before the text, with a heatmap tinting each line by how recent its commit is. Off by default; turn it on with `gitBlameSolo.fileBlame.enabled` or **Git Blame Solo: Toggle File Blame**, and format it with `gitBlameSolo.fileBlame.template`. Hovering the column shows the blame hover for that line.
 - Fixed: files opened through a symlinked folder got no blame, because git reports the repository root with symlinks resolved.

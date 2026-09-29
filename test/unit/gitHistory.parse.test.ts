@@ -55,6 +55,20 @@ describe('parseHistory', () => {
     assert.deepStrictEqual(entries[1].parents, []);
     assert.strictEqual(entries[1].summary, 'Root: a|b');
     assert.deepStrictEqual(entries[1].refs, []);
+    assert.strictEqual(entries[1].path, undefined);
+  });
+
+  it("reads the file's path in each commit from --name-only", () => {
+    const output =
+      '\x1e' + [SHA_B, SHA_A, 'Ada', 'ada@example.com', '1700000000', 'Rename', 'HEAD -> main'].join('\x1f') + '\n\nsrc/new.ts\n' +
+      '\x1e' + [SHA_A, '', 'Ada', 'ada@example.com', '1600000000', 'Add', ''].join('\x1f') + '\n\nsrc/old.ts\n';
+    const entries = parseHistory(output);
+    assert.deepStrictEqual(
+      entries.map((e) => e.path),
+      ['src/new.ts', 'src/old.ts'],
+    );
+    assert.deepStrictEqual(entries[0].refs[1], { kind: 'branch', name: 'main' });
+    assert.deepStrictEqual(entries[1].refs, []);
   });
 
   it('reads empty output as no commits', () => {
@@ -88,6 +102,6 @@ describe('buildHistoryArgs', () => {
 
   it('follows a file through renames', () => {
     const args = buildHistoryArgs({ scope: { kind: 'head' }, path: 'src/a.ts', skip: 0, limit: 10 });
-    assert.deepStrictEqual(args.slice(-4), ['HEAD', '--follow', '--', 'src/a.ts']);
+    assert.deepStrictEqual(args.slice(-5), ['HEAD', '--name-only', '--follow', '--', 'src/a.ts']);
   });
 });

@@ -31,6 +31,11 @@ describe('renderHistoryRows', () => {
     assert.ok(!html.includes('<svg'));
   });
 
+  it("carries the file's path in the commit for a file's history", () => {
+    assert.ok(renderHistoryRows([entry({ path: 'src/<a>.ts' })], undefined, OPTIONS).includes('data-path="src/&lt;a&gt;.ts"'));
+    assert.ok(!renderHistoryRows([entry()], undefined, OPTIONS).includes('data-path'));
+  });
+
   it('shows the current user label for their own commits', () => {
     const html = renderHistoryRows([entry()], undefined, { ...OPTIONS, currentUserEmail: 'ADA@example.com' });
     assert.ok(html.includes('>You<'));
