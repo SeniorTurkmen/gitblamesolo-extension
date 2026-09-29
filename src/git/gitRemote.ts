@@ -4,6 +4,25 @@ export interface RemoteCommitLink {
   /** Hosting service name for labels such as "Open on GitHub". */
   provider: string;
   url: string;
+  /** The pull request (merge request on GitLab) the commit message names, when the host is known. */
+  pullRequest?: { number: number; url: string };
+}
+
+/**
+ * Finds the pull request number in the message formats hosting services
+ * write when merging: GitHub's merge and squash commits, GitLab's
+ * "See merge request", Bitbucket's "(pull request #N)", and Azure DevOps's
+ * "Merged PR N:".
+ */
+export function parsePullRequestNumber(message: string): number | undefined {
+  const summary = message.split('\n', 1)[0];
+  const match =
+    /^Merge pull request #(\d+) from /.exec(summary) ??
+    /\(#(\d+)\)\s*$/.exec(summary) ??
+    /^Merged PR (\d+):/.exec(summary) ??
+    /\(pull request #(\d+)\)/.exec(summary) ??
+    /^See merge request \S*!(\d+)\s*$/m.exec(message);
+  return match ? parseInt(match[1], 10) : undefined;
 }
 
 interface RemoteLocation {
@@ -47,15 +66,28 @@ export function parseRemoteUrl(remoteUrl: string): RemoteLocation | undefined {
   return { host: host.toLowerCase(), path: repoPath };
 }
 
-export function buildCommitLink(remoteUrl: string, sha: string): RemoteCommitLink | undefined {
+/** "PR #12" on most hosts, "MR !12" on GitLab, which calls them merge requests. */
+export function pullRequestLabel(provider: string, prNumber: number): string {
+  return provider === 'GitLab' ? `MR !${prNumber}` : `PR #${prNumber}`;
+}
+
+/**
+ * Links to a commit, and to the pull request its message names, on the
+ * remote's web UI. Pass the commit message to look for a pull request.
+ */
+export function buildCommitLink(remoteUrl: string, sha: string, message = ''): RemoteCommitLink | undefined {
   const remote = parseRemoteUrl(remoteUrl);
   if (!remote) {
     return undefined;
   }
   const { host, path } = remote;
+  const prNumber = parsePullRequestNumber(message);
+  const withPullRequest = (link: RemoteCommitLink, prUrl: string | undefined): RemoteCommitLink =>
+    prNumber !== undefined && prUrl ? { ...link, pullRequest: { number: prNumber, url: prUrl } } : link;
 
   if (host === 'bitbucket.org') {
-    return { provider: 'Bitbucket', url: `https://${host}/${path}/commits/${sha}` };
+    const base = `https://${host}/${path}`;
+    return withPullRequest({ provider: 'Bitbucket', url: `${base}/commits/${sha}` }, `${base}/pull-requests/${prNumber}`);
   }
   if (host === 'ssh.dev.azure.com' || host === 'dev.azure.com' || host.endsWith('.visualstudio.com')) {
     // ssh: v3/org/project/repo, https: org/project/_git/repo
@@ -64,14 +96,20 @@ export function buildCommitLink(remoteUrl: string, sha: string): RemoteCommitLin
     if (!org || !project || !repo) {
       return undefined;
     }
-    return { provider: 'Azure DevOps', url: `https://dev.azure.com/${org}/${project}/_git/${repo}/commit/${sha}` };
+    const base = `https://dev.azure.com/${org}/${project}/_git/${repo}`;
+    return withPullRequest({ provider: 'Azure DevOps', url: `${base}/commit/${sha}` }, `${base}/pullrequest/${prNumber}`);
   }
   if (host.includes('gitlab')) {
-    return { provider: 'GitLab', url: `https://${host}/${path}/-/commit/${sha}` };
+    const base = `https://${host}/${path}`;
+    return withPullRequest({ provider: 'GitLab', url: `${base}/-/commit/${sha}` }, `${base}/-/merge_requests/${prNumber}`);
   }
   // GitHub, GitHub Enterprise, Gitea, Forgejo, and most other hosts use /commit/<sha>.
-  const provider = host === 'github.com' ? 'GitHub' : 'Remote';
-  return { provider, url: `https://${host}/${path}/commit/${sha}` };
+  // Only github.com is known to use /pull/<n>; other hosts get no pull request link.
+  const base = `https://${host}/${path}`;
+  if (host === 'github.com') {
+    return withPullRequest({ provider: 'GitHub', url: `${base}/commit/${sha}` }, `${base}/pull/${prNumber}`);
+  }
+  return { provider: 'Remote', url: `${base}/commit/${sha}` };
 }
 
 const remoteUrlCache = new Map<string, Promise<string | undefined>>();
@@ -93,9 +131,9 @@ export function getCurrentUserEmail(repoRoot: string): Promise<string | undefine
   });
 }
 
-export async function getCommitLink(repoRoot: string, sha: string): Promise<RemoteCommitLink | undefined> {
+export async function getCommitLink(repoRoot: string, sha: string, message = ''): Promise<RemoteCommitLink | undefined> {
   const remoteUrl = await getDefaultRemoteUrl(repoRoot);
-  return remoteUrl ? buildCommitLink(remoteUrl, sha) : undefined;
+  return remoteUrl ? buildCommitLink(remoteUrl, sha, message) : undefined;
 }
 
 export function clearRemoteCaches(): void {

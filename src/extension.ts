@@ -220,7 +220,7 @@ export function activate(context: vscode.ExtensionContext): void {
         }
         const [diffs, remoteLink] = await Promise.all([
           commitDiffCache.getOrCompute(sha, () => getCommitDiff(sha!, repoRoot!)),
-          getCommitLink(repoRoot, sha),
+          getCommitLink(repoRoot, sha, `${commit.summary}\n\n${commit.body}`),
         ]);
         const source =
           sourceUri && sourceCommitPath && sourceCommitLine !== undefined

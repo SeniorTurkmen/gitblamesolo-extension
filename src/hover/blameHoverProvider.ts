@@ -7,7 +7,7 @@ import { GitBlameSoloConfig, isExcluded } from '../config';
 import { BLAMEABLE_SCHEMES, blameTarget, resolveBlameTarget } from '../git/blameTarget';
 import { getLineDiffHunk } from '../git/gitDiff';
 import { getCommitDetails } from '../git/gitLog';
-import { getCommitLink } from '../git/gitRemote';
+import { getCommitLink, pullRequestLabel } from '../git/gitRemote';
 import { formatAuthor } from '../util/authorFormat';
 import { formatDate } from '../util/dateFormat';
 import { countDiffStats, parseDiffHunkLines } from '../util/diffRender';
@@ -174,7 +174,11 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       getCommitDetails(blame.sha, repoRoot),
     );
     const diffHunk = await diffHunkPromise;
-    const remoteLink = await getCommitLink(repoRoot, blame.sha);
+    const remoteLink = await getCommitLink(
+      repoRoot,
+      blame.sha,
+      commit ? `${commit.summary}\n\n${commit.body}` : blame.summary,
+    );
 
     if (token.isCancellationRequested) {
       return undefined;
@@ -236,6 +240,10 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     }
     if (remoteLink) {
       md.appendMarkdown(` &nbsp;&nbsp; $(globe) [Open on ${remoteLink.provider}](${remoteLink.url})`);
+      if (remoteLink.pullRequest) {
+        const label = pullRequestLabel(remoteLink.provider, remoteLink.pullRequest.number);
+        md.appendMarkdown(` &nbsp;&nbsp; $(git-pull-request) [${label}](${remoteLink.pullRequest.url})`);
+      }
     }
     return new vscode.Hover(md, range);
   }

@@ -72,7 +72,7 @@ Hover the inline annotation at the end of the current line to open a popup conta
 | **Co-authors** | Everyone credited with a `Co-authored-by:` trailer, if any |
 | **Body** | The full commit message body, if there is one, without the co-author trailers |
 | **What changed** | A colored `diff` of the **entire changed block** the line belongs to (every contiguous line changed in the same hunk, not only the hovered line), with an added/removed line count |
-| **Actions** | **Open in Diff Editor** (at the line), **View changed files (N files)**, **Line history**, **Blame previous revision** when the line existed before the commit, and **Open on GitHub** (or GitLab, Bitbucket, Azure DevOps) when the repository has a remote |
+| **Actions** | **Open in Diff Editor** (at the line), **View changed files (N files)**, **Line history**, **Blame previous revision** when the line existed before the commit, and **Open on GitHub** (or GitLab, Bitbucket, Azure DevOps) when the repository has a remote, plus **PR #N** (**MR !N** on GitLab) when the commit message names the pull request it came from |
 
 This shows you the context of a change right away: you see the rest of the block that changed with the line, not just the one line in isolation.
 

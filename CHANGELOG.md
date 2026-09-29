@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The hover and the commit details panel link to the pull request a commit came from, when its message names one: GitHub merge and squash commits ("(#123)"), GitLab "See merge request", Bitbucket "(pull request #N)", and Azure DevOps "Merged PR N:". Other hosts get no pull request link.
 - Co-authors from `Co-authored-by:` trailers are listed in the hover (emails follow `gitBlameSolo.showAuthorEmail`) and in the commit details panel. The trailers are no longer repeated in the message body.
 - Added **Line history** to the hover and as a command: it lists every commit that changed the current line, newest first, following it across edits and renames (`git log -L`). Picking a commit opens its change in the diff editor at the line; buttons open the commit details or copy the hash.
 - **Open in Diff Editor** in the hover now opens at the line instead of the top of the file.

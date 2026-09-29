@@ -4,14 +4,14 @@ import { applyPatchReverse } from '../git/gitApply';
 import { GitCliError } from '../git/gitCli';
 import { buildHunkPatch, isRevertibleHunk } from '../git/gitCommitDiff';
 import { CommitDetails, CommitFileChange, DiffHunk, DiffLine, FileChangeStatus, FileDiff, SourceLocation } from '../types';
-import { RemoteCommitLink } from '../git/gitRemote';
+import { pullRequestLabel, RemoteCommitLink } from '../git/gitRemote';
 import { formatDate } from '../util/dateFormat';
 
 type WebviewMessage =
   | { type: 'openFile'; path: string }
   | { type: 'openSource' }
   | { type: 'openDiff'; path: string; oldPath?: string }
-  | { type: 'openRemote' }
+  | { type: 'openRemote'; target: 'commit' | 'pullRequest' }
   | { type: 'copySha' }
   | { type: 'revertHunk'; path: string; hunkIndex: number };
 
@@ -126,8 +126,9 @@ export class CommitDetailsPanel {
       return;
     }
     if (message.type === 'openRemote') {
-      if (this.remoteLink) {
-        await vscode.env.openExternal(vscode.Uri.parse(this.remoteLink.url));
+      const url = message.target === 'pullRequest' ? this.remoteLink?.pullRequest?.url : this.remoteLink?.url;
+      if (url) {
+        await vscode.env.openExternal(vscode.Uri.parse(url));
       }
       return;
     }
@@ -423,11 +424,7 @@ export class CommitDetailsPanel {
     ${escapeHtml(formatDate(commit.authorTimestamp, 'absolute'))} &bull;
     <span class="hash">${escapeHtml(commit.sha)}</span>
     <button class="copy-sha-btn" title="Copy commit SHA" aria-label="Copy commit SHA">${COPY_ICON}</button>
-    ${
-      this.remoteLink
-        ? `<button class="diff-editor-btn remote-btn" title="${escapeHtml(this.remoteLink.url)}">Open on ${escapeHtml(this.remoteLink.provider)}</button>`
-        : ''
-    }
+    ${this.renderRemoteButtons()}
   </div>
   ${
     commit.coAuthors.length > 0
@@ -466,7 +463,7 @@ export class CommitDetailsPanel {
       });
     });
     document.querySelectorAll('.remote-btn').forEach((el) => {
-      el.addEventListener('click', () => vscode.postMessage({ type: 'openRemote' }));
+      el.addEventListener('click', () => vscode.postMessage({ type: 'openRemote', target: el.dataset.target }));
     });
     document.querySelectorAll('.diff-editor-btn:not(.remote-btn)').forEach((el) => {
       el.addEventListener('click', (e) => {
@@ -525,6 +522,22 @@ export class CommitDetailsPanel {
 
     const body = this.renderDiffBody(file.path, diff, this.sourceCommitLineFor(file.path));
     return `<div class="file-section">${header}${body}</div>`;
+  }
+
+  private renderRemoteButtons(): string {
+    const link = this.remoteLink;
+    if (!link) {
+      return '';
+    }
+    const buttons = [
+      `<button class="diff-editor-btn remote-btn" data-target="commit" title="${escapeHtml(link.url)}">Open on ${escapeHtml(link.provider)}</button>`,
+    ];
+    if (link.pullRequest) {
+      buttons.push(
+        `<button class="diff-editor-btn remote-btn" data-target="pullRequest" title="${escapeHtml(link.pullRequest.url)}">Open ${pullRequestLabel(link.provider, link.pullRequest.number)}</button>`,
+      );
+    }
+    return buttons.join('');
   }
 
   private sourceCommitLineFor(filePath: string): number | undefined {
