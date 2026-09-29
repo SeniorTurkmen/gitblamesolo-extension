@@ -8,7 +8,7 @@ on:
       target:
         description: Where to publish the version in package.json
         type: choice
-        options: [both, marketplace, openvsx]
+        options: [both, marketplace, openvsx, marketplace-identity]
         default: both
 
 permissions:
@@ -16,6 +16,7 @@ permissions:
 
 jobs:
   package:
+    if: github.event_name == 'release' || inputs.target != 'marketplace-identity'
     runs-on: ubuntu-latest
     outputs:
       vsix: ${{ steps.package.outputs.vsix }}
@@ -56,30 +57,60 @@ jobs:
           name: vsix
           path: ${{ steps.package.outputs.vsix }}
 
+  # Signs in to Microsoft Entra ID as a user-assigned managed identity through
+  # GitHub's OIDC token, so no Marketplace token is stored anywhere.
   marketplace:
     needs: package
-    if: github.event_name == 'release' || inputs.target != 'openvsx'
+    if: github.event_name == 'release' || inputs.target == 'both' || inputs.target == 'marketplace'
     runs-on: ubuntu-latest
+    environment: marketplace
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Download the package
         uses: actions/download-artifact@v4
         with:
           name: vsix
 
+      - name: Sign in to Microsoft Entra ID
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
       - name: Publish to the Visual Studio Marketplace
         env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
           VSIX: ${{ needs.package.outputs.vsix }}
+        run: npx --yes @vscode/vsce@3 publish --azure-credential --packagePath "$VSIX"
+
+  # One-time setup: prints the ID to add as a member of the Marketplace publisher.
+  marketplace-identity:
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'marketplace-identity'
+    runs-on: ubuntu-latest
+    environment: marketplace
+    permissions:
+      id-token: write
+    steps:
+      - name: Sign in to Microsoft Entra ID
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Print the identity's Marketplace member ID
         run: |
-          if [ -z "$VSCE_PAT" ]; then
-            echo "::error::The VSCE_PAT secret is not set, so the Visual Studio Marketplace was skipped."
-            exit 1
-          fi
-          npx --yes @vscode/vsce@3 publish --packagePath "$VSIX"
+          ID=$(az rest -u https://app.vssps.visualstudio.com/_apis/profile/profiles/me \
+            --resource 499b84ac-1321-427f-aa17-267ca6975798 --query id -o tsv)
+          echo "Add this ID as a Contributor member of the Marketplace publisher: $ID"
+          echo "### Marketplace member ID" >> "$GITHUB_STEP_SUMMARY"
+          echo "Add \`$ID\` as a **Contributor** member of the publisher." >> "$GITHUB_STEP_SUMMARY"
 
   openvsx:
     needs: package
-    if: github.event_name == 'release' || inputs.target != 'marketplace'
+    if: github.event_name == 'release' || inputs.target == 'both' || inputs.target == 'openvsx'
     runs-on: ubuntu-latest
     permissions:
       contents: read

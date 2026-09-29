@@ -233,11 +233,15 @@ To publish the current `package.json` version without a new release, or to retry
 
 #### Visual Studio Marketplace
 
-1. Sign in to the [Marketplace publisher management page](https://marketplace.visualstudio.com/manage) and create the publisher `SeniorTurkmen`. The ID must match `publisher` in `package.json`.
-2. In [Azure DevOps](https://dev.azure.com), create a personal access token with **Organization: All accessible organizations** and the **Marketplace → Manage** scope.
-3. Add it to this repo as the Actions secret `VSCE_PAT`.
+The Marketplace job signs in to Microsoft Entra ID as a user-assigned managed identity, using the workflow's GitHub OIDC token, and publishes with `vsce publish --azure-credential`. No Marketplace token is stored, so the [retirement of global Azure DevOps PATs](https://aka.ms/GlobalPATDeprecation) doesn't affect it. One-time setup:
 
-The Marketplace job fails with an explanatory error while `VSCE_PAT` isn't set.
+1. **Managed identity.** In the [Azure portal](https://portal.azure.com), create a **User Assigned Managed Identity** in any subscription (a free one works). Note its **Client ID**, and the **Tenant ID** of your directory.
+2. **Federated credential.** On the identity, open **Settings → Federated credentials → Add credential**, pick **GitHub Actions deploying Azure resources**, and enter organization `SeniorTurkmen`, repository `gitblamesolo-extension`, entity **Environment**, environment `marketplace`.
+3. **GitHub.** In this repository's settings, create the environment `marketplace`, and add the Actions **variables** (not secrets) `AZURE_CLIENT_ID` and `AZURE_TENANT_ID`.
+4. **Member ID.** Run **Publish** from the Actions tab with target `marketplace-identity`. The run summary shows the ID the Marketplace knows the identity by.
+5. **Publisher.** On the [Marketplace publisher management page](https://marketplace.visualstudio.com/manage), create the publisher `SeniorTurkmen` if it doesn't exist yet (the ID must match `publisher` in `package.json`). Under **Members**, add the ID from step 4 with the **Contributor** role.
+
+After that, releases publish to the Marketplace automatically. To publish the current version on its own, run **Publish** with target `marketplace`.
 
 #### Open VSX
 
