@@ -22,10 +22,26 @@ export function buildGitShowUri(sha: string, repoRoot: string, relativePath: str
   });
 }
 
+/** Reads back what buildGitShowUri encoded; undefined for any other URI. */
+export function parseGitShowUri(uri: vscode.Uri): { sha: string; repoRoot: string; relativePath: string } | undefined {
+  if (uri.scheme !== GIT_SHOW_SCHEME) {
+    return undefined;
+  }
+  try {
+    const { sha, repoRoot } = JSON.parse(decodeURIComponent(uri.query)) as GitShowUriPayload;
+    return { sha, repoRoot, relativePath: uri.path.replace(/^\//, '') };
+  } catch {
+    return undefined;
+  }
+}
+
 export class GitShowContentProvider implements vscode.TextDocumentContentProvider {
   async provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
-    const { sha, repoRoot } = JSON.parse(decodeURIComponent(uri.query)) as GitShowUriPayload;
-    const relativePath = uri.path.replace(/^\//, '');
+    const parsed = parseGitShowUri(uri);
+    if (!parsed) {
+      return '';
+    }
+    const { sha, repoRoot, relativePath } = parsed;
     try {
       return await runGit(['show', `${sha}:${relativePath}`], { cwd: repoRoot });
     } catch (err) {

@@ -2,9 +2,8 @@ import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { BlameCache } from '../cache/blameCache';
 import { GitBlameSoloConfig, isExcluded } from '../config';
-import { blameFile } from '../git/gitBlame';
+import { BLAMEABLE_SCHEMES, blameTarget, resolveBlameTarget } from '../git/blameTarget';
 import { getCurrentUserEmail } from '../git/gitRemote';
-import { resolveRepository } from '../git/gitRepository';
 import { BlameInfo } from '../types';
 import { formatDecorationText, formatUncommittedText } from '../util/dateFormat';
 
@@ -88,7 +87,7 @@ export class CurrentLineBlameDecorator implements vscode.Disposable {
 
     if (
       (!config.enabled && !config.statusBarEnabled) ||
-      document.uri.scheme !== 'file' ||
+      !BLAMEABLE_SCHEMES.includes(document.uri.scheme) ||
       document.getText().length > config.maxFileSizeBytes ||
       isExcluded(document, config)
     ) {
@@ -96,23 +95,18 @@ export class CurrentLineBlameDecorator implements vscode.Disposable {
       return;
     }
 
-    const repo = await resolveRepository(document.uri);
+    const target = await resolveBlameTarget(document.uri);
     if (myGeneration !== this.generation) {
       return;
     }
-    if (!repo) {
+    if (!target) {
       this.clear(editor);
       return;
     }
 
     const line = editor.selection.active.line;
     const blame = await this.deps.blameCache.getLine(document, line, () =>
-      blameFile({
-        filePath: document.uri.fsPath,
-        content: document.getText(),
-        repoRoot: repo.rootFsPath,
-        options: config.blameOptions,
-      }),
+      blameTarget(target, document, config.blameOptions),
     );
     if (myGeneration !== this.generation) {
       return;
@@ -125,14 +119,16 @@ export class CurrentLineBlameDecorator implements vscode.Disposable {
     let inlineLabel: string;
     let statusLabel: string;
     if (blame.isUncommitted) {
-      const savedAt = document.isDirty ? undefined : await this.getMtimeSeconds(document.uri.fsPath);
+      // A past revision has no save time; only a clean file on disk does.
+      const savedAt =
+        document.isDirty || document.uri.scheme !== 'file' ? undefined : await this.getMtimeSeconds(document.uri.fsPath);
       if (myGeneration !== this.generation) {
         return;
       }
       inlineLabel = formatUncommittedText(config.uncommittedLabel, savedAt, config.dateStyle);
       statusLabel = config.uncommittedLabel;
     } else {
-      const author = await this.authorLabel(blame, repo.rootFsPath, config);
+      const author = await this.authorLabel(blame, target.repoRoot, config);
       if (myGeneration !== this.generation) {
         return;
       }

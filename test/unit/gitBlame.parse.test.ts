@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { buildBlameArgs, parseIncrementalBlame, toBlameInfo } from '../../src/git/gitBlame';
+import { buildBlameArgs, parseIncrementalBlame, toBlameInfo, unquoteGitPath } from '../../src/git/gitBlame';
 import { ZERO_SHA } from '../../src/types';
 import { INCREMENTAL_BLAME_OUTPUT } from '../fixtures/git-samples';
 
@@ -50,6 +50,39 @@ describe('parseIncrementalBlame', () => {
     assert.strictEqual(info!.isUncommitted, true);
   });
 
+  it('records the commit and path each line had before its commit', () => {
+    assert.deepStrictEqual(toBlameInfo(lines, 2)!.previous, {
+      sha: 'abcdef1234567890abcdef1234567890abcdef12',
+      filename: 'src/engine.ts',
+    });
+    assert.strictEqual(toBlameInfo(lines, 2)!.filename, 'src/engine.ts');
+    // A boundary commit created its lines, so there is nothing before it.
+    assert.strictEqual(toBlameInfo(lines, 0)!.previous, undefined);
+  });
+
+  it('reads previous and filename per group, not per commit', () => {
+    const sha = 'cccccccccccccccccccccccccccccccccccccccc';
+    const output = [
+      `${sha} 1 1 1`,
+      'author Ada',
+      'summary Rename',
+      'previous dddddddddddddddddddddddddddddddddddddddd "old n\\303\\244me.txt"',
+      'filename "n\\303\\244me.txt"',
+      `${sha} 5 2 1`,
+      'filename "n\\303\\244me.txt"',
+      '',
+    ].join('\n');
+    const parsed = parseIncrementalBlame(output);
+
+    assert.strictEqual(toBlameInfo(parsed, 0)!.filename, 'näme.txt');
+    assert.deepStrictEqual(toBlameInfo(parsed, 0)!.previous, {
+      sha: 'dddddddddddddddddddddddddddddddddddddddd',
+      filename: 'old näme.txt',
+    });
+    assert.strictEqual(toBlameInfo(parsed, 1)!.filename, 'näme.txt');
+    assert.strictEqual(toBlameInfo(parsed, 1)!.previous, undefined);
+  });
+
   it('returns nothing for empty output or a line past the end', () => {
     assert.deepStrictEqual(parseIncrementalBlame(''), []);
     assert.strictEqual(toBlameInfo(lines, 5), undefined);
@@ -87,5 +120,31 @@ describe('buildBlameArgs', () => {
       '--',
       'src/a.ts',
     ]);
+  });
+});
+
+describe('buildBlameArgs with a revision', () => {
+  it('blames the revision instead of reading the buffer from stdin', () => {
+    assert.deepStrictEqual(buildBlameArgs('src/a.ts', undefined, undefined, 'abc123'), [
+      'blame',
+      '--incremental',
+      'abc123',
+      '--',
+      'src/a.ts',
+    ]);
+  });
+});
+
+describe('unquoteGitPath', () => {
+  it('leaves plain paths alone', () => {
+    assert.strictEqual(unquoteGitPath('src/a b.ts'), 'src/a b.ts');
+  });
+
+  it('decodes octal escapes as UTF-8 bytes', () => {
+    assert.strictEqual(unquoteGitPath('"dosya \\303\\274.txt"'), 'dosya ü.txt');
+  });
+
+  it('decodes character escapes', () => {
+    assert.strictEqual(unquoteGitPath('"a\\tb\\"c\\\\d"'), 'a\tb"c\\d');
   });
 });

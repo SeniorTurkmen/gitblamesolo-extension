@@ -23,6 +23,7 @@ It does one thing, stays out of the way, and has no dependencies beyond the `git
   - [Rich hover: the commit and what it changed](#rich-hover-the-commit-and-what-it-changed)
   - [Native diff editor](#native-diff-editor)
   - [Commit details panel](#commit-details-panel)
+  - [Step back through a line's history](#step-back-through-a-lines-history)
   - [Revert a single hunk](#revert-a-single-hunk)
   - [Commands](#commands)
 - [Requirements](#requirements)
@@ -69,7 +70,7 @@ Hover the inline annotation at the end of the current line to open a popup conta
 | **Header** | Commit subject, author (with email), absolute date, and short hash with a button that copies the full hash |
 | **Body** | The full commit message body, if there is one |
 | **What changed** | A colored `diff` of the **entire changed block** the line belongs to (every contiguous line changed in the same hunk, not only the hovered line), with an added/removed line count |
-| **Actions** | **Open in Diff Editor**, **View changed files (N files)**, and **Open on GitHub** (or GitLab, Bitbucket, Azure DevOps) when the repository has a remote |
+| **Actions** | **Open in Diff Editor**, **View changed files (N files)**, **Blame previous revision** when the line existed before the commit, and **Open on GitHub** (or GitLab, Bitbucket, Azure DevOps) when the repository has a remote |
 
 This shows you the context of a change right away: you see the rest of the block that changed with the line, not just the one line in isolation.
 
@@ -95,6 +96,10 @@ By default the popup only opens over the annotation, so hovering your code for o
 
 ![Commit details panel listing every changed file with diffs](docs/images/commit-panel.png)
 
+### Step back through a line's history
+
+**Blame previous revision** in the hover (or the **Git Blame Solo: Blame Previous Revision** command) opens the file as it was just before the commit that last changed the line, side by side with its current version in the diff editor, with the cursor on the matching line on both sides. The past revision on the left has inline blame and the hover too, so you can keep stepping back to see who wrote the line before, and why, until you reach the commit that created it. Each step still compares with the current file, and renames are followed along the way.
+
 ### Revert a single hunk
 
 Each hunk in the panel has a **Revert Hunk** button. It undoes **only that hunk** in your working copy using `git apply --reverse` and leaves the rest of the commit alone.
@@ -119,6 +124,7 @@ Open the Command Palette (<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P
 | `Git Blame Solo: Toggle Inline Blame` | Turns the end-of-line annotation on or off (saved to your user settings). |
 | `Git Blame Solo: Show Commit Details` | Opens the commit details panel for the line under the cursor. Also available from the editor's right-click menu. |
 | `Git Blame Solo: Copy Commit Hash` | Copies the full hash of the commit that last changed the current line to the clipboard. |
+| `Git Blame Solo: Blame Previous Revision` | Compares the file as it was before the commit that last changed the current line with its current version, at that line. |
 | `Git Blame Solo: Open Commit on Remote` | Opens the commit that last changed the current line on GitHub, GitLab, Bitbucket, or Azure DevOps. |
 | `Git Blame Solo: Refresh` | Re-reads everything cached from git: blame, repository roots, the remote URL, and your `user.email`. Use it after changing your git config or remotes. |
 | `Git Blame Solo: Hide Author Email` / `Show Author Email` | Hides or shows the author's email in the hover (saved to your user settings). Only the one that applies is listed. |
@@ -172,7 +178,7 @@ For example, to show the short hash first with an absolute date:
 - Between saves, any line you edit reads as uncommitted, even if you change it back to its committed text. Saving the file corrects it.
 - The remote URL and your `user.email` are read once per repository. After changing them with `git config` or `git remote`, run **Git Blame Solo: Refresh**.
 - Files larger than `gitBlameSolo.maxFileSizeKB` are skipped.
-- Only local files (`file:` scheme) are supported. Virtual or remote file systems aren't blamed.
+- Only local files and the past revisions this extension opens are blamed. Other virtual or remote file systems aren't.
 
 ---
 

@@ -151,7 +151,7 @@ export class CommitDetailsPanel {
       return;
     }
     try {
-      const document = await vscode.workspace.openTextDocument(this.source.filePath);
+      const document = await vscode.workspace.openTextDocument(vscode.Uri.parse(this.source.uri));
       const editor = await vscode.window.showTextDocument(document, { preview: true });
       const position = new vscode.Position(this.source.line, 0);
       editor.selection = new vscode.Selection(position, position);
@@ -524,8 +524,7 @@ export class CommitDetailsPanel {
     if (!this.source) {
       return undefined;
     }
-    const relativeSourcePath = path.relative(this.repoRoot, this.source.filePath).split(path.sep).join('/');
-    return relativeSourcePath === filePath ? this.source.commitLine : undefined;
+    return this.source.commitPath === filePath ? this.source.commitLine : undefined;
   }
 
   private renderDiffBody(filePath: string, diff: FileDiff | undefined, matchCommitLine: number | undefined): string {

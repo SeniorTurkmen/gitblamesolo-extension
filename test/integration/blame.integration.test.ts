@@ -6,7 +6,7 @@ import * as path from 'path';
 import { applyPatchReverse } from '../../src/git/gitApply';
 import { blameFile, toBlameInfo } from '../../src/git/gitBlame';
 import { buildHunkPatch, getCommitDiff, isRevertibleHunk } from '../../src/git/gitCommitDiff';
-import { getLineDiffHunk } from '../../src/git/gitDiff';
+import { getLineDiffHunk, getParentLine } from '../../src/git/gitDiff';
 import { getCommitDetails } from '../../src/git/gitLog';
 import { clearRemoteCaches, getCommitLink, getCurrentUserEmail } from '../../src/git/gitRemote';
 
@@ -24,8 +24,13 @@ function initRepo(prefix: string): string {
   return repoRoot;
 }
 
+function relativeTo(repoRoot: string, filePath: string): string {
+  return path.relative(repoRoot, filePath).split(path.sep).join('/');
+}
+
 async function blameLine(options: { filePath: string; content: string; line: number; repoRoot: string }) {
-  return toBlameInfo(await blameFile(options), options.line);
+  const relativePath = relativeTo(options.repoRoot, options.filePath);
+  return toBlameInfo(await blameFile({ ...options, relativePath }), options.line);
 }
 
 describe('git blame integration', () => {
@@ -91,7 +96,7 @@ describe('git blame integration', () => {
     const blame = await blameLine({ filePath, content, line: 1, repoRoot });
     assert.ok(blame);
 
-    const hunk = await getLineDiffHunk({ sha: blame!.sha, filePath, line: blame!.originalLine, repoRoot });
+    const hunk = await getLineDiffHunk({ sha: blame!.sha, relativePath: blame!.filename, line: blame!.originalLine, repoRoot });
     assert.ok(hunk);
     assert.ok(hunk!.startsWith('@@'));
     assert.ok(hunk!.includes('-line two'));
@@ -188,7 +193,7 @@ describe('git line-diff block replacement', () => {
     assert.ok(blame);
     assert.strictEqual(blame!.sha, secondSha);
 
-    const hunk = await getLineDiffHunk({ sha: blame!.sha, filePath, line: blame!.originalLine, repoRoot });
+    const hunk = await getLineDiffHunk({ sha: blame!.sha, relativePath: blame!.filename, line: blame!.originalLine, repoRoot });
     assert.ok(hunk);
     assert.ok(hunk!.includes('-b'));
     assert.ok(hunk!.includes('-c'));
@@ -235,14 +240,14 @@ describe('git blame options', () => {
 
   it('attributes a reindented line to the reformat commit by default', async () => {
     const content = fs.readFileSync(filePath, 'utf8');
-    const blame = toBlameInfo(await blameFile({ filePath, content, repoRoot, options: defaults }), 0);
+    const blame = toBlameInfo(await blameFile({ relativePath: 'code.txt', content, repoRoot, options: defaults }), 0);
     assert.strictEqual(blame!.sha, reformatSha);
   });
 
   it('looks through whitespace-only changes with ignoreWhitespace', async () => {
     const content = fs.readFileSync(filePath, 'utf8');
     const options = { ...defaults, ignoreWhitespace: true };
-    const blame = toBlameInfo(await blameFile({ filePath, content, repoRoot, options }), 0);
+    const blame = toBlameInfo(await blameFile({ relativePath: 'code.txt', content, repoRoot, options }), 0);
     assert.strictEqual(blame!.sha, firstSha);
   });
 
@@ -251,13 +256,13 @@ describe('git blame options', () => {
     const content = fs.readFileSync(filePath, 'utf8');
 
     const skipped = toBlameInfo(
-      await blameFile({ filePath, content, repoRoot, options: { ...defaults, ignoreRevsFile: '.git-blame-ignore-revs' } }),
+      await blameFile({ relativePath: 'code.txt', content, repoRoot, options: { ...defaults, ignoreRevsFile: '.git-blame-ignore-revs' } }),
       0,
     );
     assert.strictEqual(skipped!.sha, firstSha);
 
     const missing = toBlameInfo(
-      await blameFile({ filePath, content, repoRoot, options: { ...defaults, ignoreRevsFile: 'no-such-file' } }),
+      await blameFile({ relativePath: 'code.txt', content, repoRoot, options: { ...defaults, ignoreRevsFile: 'no-such-file' } }),
       0,
     );
     assert.strictEqual(missing!.sha, reformatSha);
@@ -271,5 +276,80 @@ describe('git blame options', () => {
     clearRemoteCaches();
     assert.strictEqual((await getCommitLink(repoRoot, firstSha))!.url, `https://github.com/owner/repo/commit/${firstSha}`);
     assert.strictEqual(await getCurrentUserEmail(repoRoot), 'test@example.com');
+  });
+});
+
+describe('blame previous revision', () => {
+  let repoRoot: string;
+  let firstSha: string;
+  let renameSha: string;
+  let editSha: string;
+
+  function head(): string {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim();
+  }
+
+  before(() => {
+    repoRoot = initRepo('gitblamesolo-previous-');
+
+    fs.writeFileSync(path.join(repoRoot, 'old.txt'), 'one\ntwo\nthree\nfour\n');
+    git(repoRoot, ['add', 'old.txt']);
+    git(repoRoot, ['commit', '-m', 'Add file']);
+    firstSha = head();
+
+    git(repoRoot, ['mv', 'old.txt', 'new.txt']);
+    git(repoRoot, ['commit', '-m', 'Rename file']);
+    renameSha = head();
+
+    fs.writeFileSync(path.join(repoRoot, 'new.txt'), 'zero\none\ntwo\nTHREE\nfour\n');
+    git(repoRoot, ['commit', '-am', 'Edit file']);
+    editSha = head();
+  });
+
+  after(() => {
+    fs.rmSync(repoRoot, { recursive: true, force: true });
+  });
+
+  it('reports the commit and path a line had before its commit, across a rename', async () => {
+    const content = fs.readFileSync(path.join(repoRoot, 'new.txt'), 'utf8');
+    const blame = toBlameInfo(await blameFile({ repoRoot, relativePath: 'new.txt', content }), 3);
+
+    assert.strictEqual(blame!.sha, editSha);
+    assert.strictEqual(blame!.filename, 'new.txt');
+    assert.deepStrictEqual(blame!.previous, { sha: renameSha, filename: 'new.txt' });
+
+    // Blame follows the rename: the untouched line comes from the commit that wrote it under the old name.
+    const untouched = toBlameInfo(await blameFile({ repoRoot, relativePath: 'new.txt', content }), 1);
+    assert.strictEqual(untouched!.sha, firstSha);
+    assert.strictEqual(untouched!.filename, 'old.txt');
+    assert.strictEqual(untouched!.previous, undefined);
+  });
+
+  it('blames a file at a past revision without reading a buffer', async () => {
+    const blame = toBlameInfo(await blameFile({ repoRoot, relativePath: 'new.txt', revision: renameSha }), 2);
+
+    assert.strictEqual(blame!.sha, firstSha);
+    assert.strictEqual(blame!.isUncommitted, false);
+    assert.strictEqual(blame!.filename, 'old.txt');
+  });
+
+  it('maps a line to its position in the parent revision', async () => {
+    // "THREE" (line 3 at editSha) replaced "three" (line 2 at renameSha); "four" moved down by one.
+    const options = { repoRoot, sha: editSha, relativePath: 'new.txt', parentSha: renameSha, parentRelativePath: 'new.txt' };
+    assert.strictEqual(await getParentLine({ ...options, line: 3 }), 2);
+    assert.strictEqual(await getParentLine({ ...options, line: 4 }), 3);
+    assert.strictEqual(await getParentLine({ ...options, line: 0 }), 0);
+  });
+
+  it('keeps the line when the diff cannot be computed', async () => {
+    const line = await getParentLine({
+      repoRoot,
+      sha: editSha,
+      relativePath: 'new.txt',
+      parentSha: renameSha,
+      parentRelativePath: 'missing.txt',
+      line: 3,
+    });
+    assert.strictEqual(line, 3);
   });
 });

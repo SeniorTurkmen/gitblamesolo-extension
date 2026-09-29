@@ -169,6 +169,10 @@
         "title": "Git Blame Solo: Open Commit on Remote"
       },
       {
+        "command": "gitBlameSolo.blamePreviousRevision",
+        "title": "Git Blame Solo: Blame Previous Revision"
+      },
+      {
         "command": "gitBlameSolo.refresh",
         "title": "Git Blame Solo: Refresh"
       },

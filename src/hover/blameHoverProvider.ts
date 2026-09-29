@@ -1,15 +1,13 @@
-import * as path from 'path';
 import * as fs from 'fs';
 import * as vscode from 'vscode';
 import { BlameCache } from '../cache/blameCache';
 import { CommitCache } from '../cache/commitCache';
 import { LineDiffCache } from '../cache/lineDiffCache';
 import { GitBlameSoloConfig, isExcluded } from '../config';
-import { blameFile } from '../git/gitBlame';
+import { BLAMEABLE_SCHEMES, blameTarget, resolveBlameTarget } from '../git/blameTarget';
 import { getLineDiffHunk } from '../git/gitDiff';
 import { getCommitDetails } from '../git/gitLog';
 import { getCommitLink } from '../git/gitRemote';
-import { resolveRepository } from '../git/gitRepository';
 import { formatAuthor } from '../util/authorFormat';
 import { formatDate } from '../util/dateFormat';
 import { countDiffStats, parseDiffHunkLines } from '../util/diffRender';
@@ -17,16 +15,34 @@ import { countDiffStats, parseDiffHunkLines } from '../util/diffRender';
 function buildShowDetailsCommandUri(
   sha: string,
   repoRoot: string,
-  sourceFilePath: string,
+  sourceUri: string,
   sourceLine: number,
   sourceCommitLine: number,
+  sourceCommitPath: string,
 ): string {
-  const args = encodeURIComponent(JSON.stringify([sha, repoRoot, sourceFilePath, sourceLine, sourceCommitLine]));
+  const args = encodeURIComponent(
+    JSON.stringify([sha, repoRoot, sourceUri, sourceLine, sourceCommitLine, sourceCommitPath]),
+  );
   return `command:gitBlameSolo.showCommitDetails?${args}`;
 }
 
-function buildOpenDiffCommandUri(sha: string, repoRoot: string, relativePath: string): string {
-  const args = encodeURIComponent(JSON.stringify([sha, repoRoot, relativePath]));
+function buildBlamePreviousCommandUri(
+  sha: string,
+  repoRoot: string,
+  relativePath: string,
+  previous: { sha: string; filename: string },
+  originalLine: number,
+  sourceUri: string,
+  sourceLine: number,
+): string {
+  const args = encodeURIComponent(
+    JSON.stringify([sha, repoRoot, relativePath, previous.sha, previous.filename, originalLine, sourceUri, sourceLine]),
+  );
+  return `command:gitBlameSolo.blamePreviousRevision?${args}`;
+}
+
+function buildOpenDiffCommandUri(sha: string, repoRoot: string, relativePath: string, oldRelativePath?: string): string {
+  const args = encodeURIComponent(JSON.stringify([sha, repoRoot, relativePath, oldRelativePath]));
   return `command:gitBlameSolo.openDiff?${args}`;
 }
 
@@ -45,7 +61,12 @@ function newMarkdown(): vscode.MarkdownString {
   const md = new vscode.MarkdownString();
   md.supportThemeIcons = true;
   md.isTrusted = {
-    enabledCommands: ['gitBlameSolo.showCommitDetails', 'gitBlameSolo.openDiff', 'gitBlameSolo.copyCommitHash'],
+    enabledCommands: [
+      'gitBlameSolo.showCommitDetails',
+      'gitBlameSolo.openDiff',
+      'gitBlameSolo.copyCommitHash',
+      'gitBlameSolo.blamePreviousRevision',
+    ],
   };
   return md;
 }
@@ -81,7 +102,7 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     token: vscode.CancellationToken,
   ): Promise<vscode.Hover | undefined> {
     const config = this.deps.getConfig();
-    if (!config.hoverEnabled || document.uri.scheme !== 'file') {
+    if (!config.hoverEnabled || !BLAMEABLE_SCHEMES.includes(document.uri.scheme)) {
       return undefined;
     }
     if (document.getText().length > config.maxFileSizeBytes || isExcluded(document, config)) {
@@ -94,19 +115,15 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     // Results land in caches shared with the inline decorator, so git runs are
     // never aborted on hover cancellation: an aborted run would cache `undefined`
     // and blank the line until the document changes.
-    const repo = await resolveRepository(document.uri);
-    if (!repo || token.isCancellationRequested) {
+    const target = await resolveBlameTarget(document.uri);
+    if (!target || token.isCancellationRequested) {
       return undefined;
     }
+    const repoRoot = target.repoRoot;
 
     const line = position.line;
     const blame = await this.deps.blameCache.getLine(document, line, () =>
-      blameFile({
-        filePath: document.uri.fsPath,
-        content: document.getText(),
-        repoRoot: repo.rootFsPath,
-        options: config.blameOptions,
-      }),
+      blameTarget(target, document, config.blameOptions),
     );
 
     if (!blame || token.isCancellationRequested) {
@@ -122,7 +139,7 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       md.appendMarkdown(`$(circle-large-filled) **${config.uncommittedLabel}**\n\n`);
       if (document.isDirty) {
         md.appendMarkdown('$(edit) File has unsaved changes');
-      } else {
+      } else if (document.uri.scheme === 'file') {
         const mtimeSeconds = await this.getMtimeSeconds(document.uri.fsPath);
         md.appendMarkdown(`$(save) File saved ${formatDate(mtimeSeconds, 'absolute')}`);
       }
@@ -131,21 +148,21 @@ export class BlameHoverProvider implements vscode.HoverProvider {
 
     const diffHunkPromise = this.deps.lineDiffCache.getOrCompute(
       blame.sha,
-      `${document.uri.toString()}#${blame.originalLine}`,
+      `${blame.filename}#${blame.originalLine}`,
       () =>
         getLineDiffHunk({
           sha: blame.sha,
-          filePath: document.uri.fsPath,
+          relativePath: blame.filename,
           line: blame.originalLine,
-          repoRoot: repo.rootFsPath,
+          repoRoot,
         }),
     );
 
     const commit = await this.deps.commitCache.getOrCompute(blame.sha, () =>
-      getCommitDetails(blame.sha, repo.rootFsPath),
+      getCommitDetails(blame.sha, repoRoot),
     );
     const diffHunk = await diffHunkPromise;
-    const remoteLink = await getCommitLink(repo.rootFsPath, blame.sha);
+    const remoteLink = await getCommitLink(repoRoot, blame.sha);
 
     if (token.isCancellationRequested) {
       return undefined;
@@ -158,7 +175,7 @@ export class BlameHoverProvider implements vscode.HoverProvider {
         `$(account) ${escapeAngleBrackets(formatAuthor(blame.authorName, blame.authorEmail, config.showAuthorEmail))} &nbsp;&nbsp; $(clock) ${formatDate(blame.authorTimestamp, 'absolute')}\n\n`,
       );
       appendSha(md, blame.sha);
-      this.appendDiff(md, diffHunk, blame.sha, repo.rootFsPath, document.uri.fsPath);
+      this.appendDiff(md, diffHunk, blame.sha, repoRoot, blame.filename, blame.previous?.filename);
       return new vscode.Hover(md, range);
     }
 
@@ -171,19 +188,34 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       md.appendMarkdown(`${commit.body}\n\n`);
     }
     appendSha(md, commit.sha);
-    this.appendDiff(md, diffHunk, commit.sha, repo.rootFsPath, document.uri.fsPath);
+    this.appendDiff(md, diffHunk, commit.sha, repoRoot, blame.filename, blame.previous?.filename);
 
     md.appendMarkdown('\n\n---\n\n');
     const fileCount = commit.files.length;
     const fileLabel = fileCount === 1 ? '1 file' : `${fileCount} files`;
     const commandUri = buildShowDetailsCommandUri(
       commit.sha,
-      repo.rootFsPath,
-      document.uri.fsPath,
+      repoRoot,
+      document.uri.toString(),
       line,
       blame.originalLine + 1,
+      blame.filename,
     );
     md.appendMarkdown(`$(files) [View changed files (${fileLabel})](${commandUri})`);
+    if (blame.previous) {
+      const previousUri = buildBlamePreviousCommandUri(
+        blame.sha,
+        repoRoot,
+        blame.filename,
+        blame.previous,
+        blame.originalLine,
+        document.uri.toString(),
+        line,
+      );
+      md.appendMarkdown(
+        ` &nbsp;&nbsp; $(history) [Blame previous revision](${previousUri} "Compare the file as it was before this commit with its current version")`,
+      );
+    }
     if (remoteLink) {
       md.appendMarkdown(` &nbsp;&nbsp; $(globe) [Open on ${remoteLink.provider}](${remoteLink.url})`);
     }
@@ -195,7 +227,8 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     diffHunk: string | undefined,
     sha: string,
     repoRoot: string,
-    filePath: string,
+    relativePath: string,
+    oldRelativePath: string | undefined,
   ): void {
     if (!diffHunk) {
       return;
@@ -213,8 +246,7 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       .filter(Boolean)
       .join(' &nbsp; ');
 
-    const relativePath = path.relative(repoRoot, filePath).split(path.sep).join('/');
-    const openDiffUri = buildOpenDiffCommandUri(sha, repoRoot, relativePath);
+    const openDiffUri = buildOpenDiffCommandUri(sha, repoRoot, relativePath, oldRelativePath);
 
     md.appendMarkdown('\n\n---\n\n');
     md.appendMarkdown(`$(diff) **What changed**${stats ? ` &nbsp; ${stats}` : ''}\n`);

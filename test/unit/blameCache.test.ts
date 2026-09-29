@@ -16,6 +16,7 @@ function committedLine(sha: string, originalLine: number): BlameLine {
       authorTimestamp: 0,
       summary: `commit ${sha}`,
     },
+    origin: { filename: 'file.txt' },
     originalLine,
   };
 }

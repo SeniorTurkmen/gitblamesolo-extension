@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added **Blame previous revision** to the hover and as a command: it opens the file as it was before the commit that last changed the line in a diff editor against the current file, at the matching line. Blame and the hover work in that past revision too, so you can keep stepping back through a line's history. Renames are followed.
+- Fixed: for a file renamed since the commit, the hover's diff and **Open in Diff Editor** used the current path, which didn't exist in that commit, and the commit panel didn't highlight the line you started from.
 - Fixed: uncommitted lines showed the file's last save time as if it were when the line changed, so a line typed a moment ago in a file saved 12 days ago read "Uncommitted changes, 12 days ago". The annotation now says "file saved 12 days ago", or "(file not saved)" while the file has unsaved changes, and the hover says the same.
 - A copy button next to the commit hash in the hover and the commit details panel copies the full hash.
 - Added **Git Blame Solo: Change Setting…**, which lists every setting with its current value and changes or resets the one you pick, without opening the Settings editor.
