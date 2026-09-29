@@ -165,4 +165,56 @@ describe('BlameCache', () => {
     const info = await cache.getLine(doc, 0, async () => fakeBlame(1));
     assert.strictEqual(info!.sha, 'c0');
   });
+
+  describe('refresh', () => {
+    it('replaces the shifted blame, so a line edited back to its committed text is blamed again', async () => {
+      const cache = new BlameCache();
+      await cache.getLine(fakeDocument('file:///a.ts', 1), 1, async () => fakeBlame(3));
+      const v2 = fakeDocument('file:///a.ts', 2);
+      cache.applyChanges(v2, [change(1, 1, 'line 1')]);
+      assert.strictEqual((await cache.getLine(v2, 1, async () => fakeBlame(3)))!.isUncommitted, true);
+
+      assert.strictEqual(await cache.refresh(v2, async () => fakeBlame(3)), true);
+      assert.strictEqual((await cache.getLine(v2, 1, async () => assert.fail('recomputed')))!.sha, 'c1');
+    });
+
+    it('drops a result for content that was edited while it ran', async () => {
+      const cache = new BlameCache();
+      await cache.getLine(fakeDocument('file:///a.ts', 1), 0, async () => fakeBlame(2));
+      const v2 = fakeDocument('file:///a.ts', 2);
+      cache.applyChanges(v2, [change(0, 0, 'edited')]);
+
+      let release: (lines: FileBlame) => void = () => undefined;
+      const refreshing = cache.refresh(v2, () => new Promise<FileBlame>((resolve) => (release = resolve)));
+      const v3 = fakeDocument('file:///a.ts', 3);
+      cache.applyChanges(v3, [change(1, 1, 'edited too')]);
+      release(fakeBlame(2));
+
+      assert.strictEqual(await refreshing, false);
+      const info = await cache.getLine(v3, 0, async () => assert.fail('recomputed'));
+      assert.strictEqual(info!.isUncommitted, true);
+    });
+
+    it('keeps the shifted blame when git fails', async () => {
+      const cache = new BlameCache();
+      await cache.getLine(fakeDocument('file:///a.ts', 1), 0, async () => fakeBlame(2));
+      const v2 = fakeDocument('file:///a.ts', 2);
+      cache.applyChanges(v2, [change(0, 0, 'edited')]);
+
+      assert.strictEqual(await cache.refresh(v2, async () => undefined), false);
+      assert.strictEqual(await cache.refresh(v2, () => Promise.reject(new Error('boom'))), false);
+      assert.strictEqual((await cache.getLine(v2, 1, async () => assert.fail('recomputed')))!.sha, 'c1');
+    });
+
+    it('does nothing for a document it has no settled blame for', async () => {
+      const cache = new BlameCache();
+      let calls = 0;
+      const compute = async () => {
+        calls++;
+        return fakeBlame(1);
+      };
+      assert.strictEqual(await cache.refresh(fakeDocument('file:///a.ts', 1), compute), false);
+      assert.strictEqual(calls, 0);
+    });
+  });
 });

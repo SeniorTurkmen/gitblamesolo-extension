@@ -21,6 +21,9 @@ import { BlameHoverProvider } from './hover/blameHoverProvider';
 import { BlameInfo } from './types';
 import { CommitDetailsPanel } from './webview/commitDetailsPanel';
 
+/** How long typing must pause before an edited document is blamed again with its unsaved text. */
+const REBLAME_DELAY_MS = 1000;
+
 async function warnIfGitMissing(): Promise<void> {
   try {
     await runGit(['--version'], { cwd: process.cwd() });
@@ -49,15 +52,55 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor((e) => decorator.onDidChangeActiveEditor(e)),
   );
+  // Edits only approximate blame (edited lines read as uncommitted); once typing
+  // pauses, the unsaved text is blamed again for an exact result.
+  const reblameTimers = new Map<string, NodeJS.Timeout>();
+  function cancelReblame(document: vscode.TextDocument): void {
+    const key = document.uri.toString();
+    clearTimeout(reblameTimers.get(key));
+    reblameTimers.delete(key);
+  }
+  function scheduleReblame(document: vscode.TextDocument): void {
+    cancelReblame(document);
+    const key = document.uri.toString();
+    reblameTimers.set(
+      key,
+      setTimeout(async () => {
+        reblameTimers.delete(key);
+        const target = await resolveBlameTarget(document.uri);
+        if (!target) {
+          return;
+        }
+        const replaced = await blameCache.refresh(document, () =>
+          blameTarget(target, document, getConfig().blameOptions),
+        );
+        if (replaced && vscode.window.activeTextEditor?.document === document) {
+          decorator.refreshNow();
+        }
+      }, REBLAME_DELAY_MS),
+    );
+  }
+  context.subscriptions.push({
+    dispose: () => {
+      reblameTimers.forEach((timer) => clearTimeout(timer));
+      reblameTimers.clear();
+    },
+  });
+
   context.subscriptions.push(
     vscode.workspace.onDidChangeTextDocument((e) => {
       blameCache.applyChanges(e.document, e.contentChanges);
+      // Some events only change the dirty state, not the text.
+      if (e.contentChanges.length > 0) {
+        scheduleReblame(e.document);
+      }
       decorator.onDidChangeDocument(e);
     }),
   );
   context.subscriptions.push(
     vscode.workspace.onDidSaveTextDocument((document) => {
-      // Edits only approximate blame (edited lines read as uncommitted); saving re-blames exactly.
+      // Re-blame right away rather than waiting for a pending re-blame; uncommitted lines also show the new save time.
+      cancelReblame(document);
       blameCache.delete(document.uri);
       if (vscode.window.activeTextEditor?.document === document) {
         decorator.refreshNow();
@@ -65,7 +108,10 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
   context.subscriptions.push(
-    vscode.workspace.onDidCloseTextDocument((document) => blameCache.delete(document.uri)),
+    vscode.workspace.onDidCloseTextDocument((document) => {
+      cancelReblame(document);
+      blameCache.delete(document.uri);
+    }),
   );
   context.subscriptions.push(
     vscode.languages.registerHoverProvider(

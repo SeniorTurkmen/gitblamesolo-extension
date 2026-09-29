@@ -101,6 +101,17 @@ describe('git blame integration', () => {
     assert.strictEqual(blame!.isUncommitted, true);
   });
 
+  it('blames unsaved text that matches the committed text to its commit, even after lines moved', async () => {
+    // What the re-blame after an edit relies on: a line edited back to its committed text is no longer uncommitted.
+    const dirtyContent = 'new first line\nline one\nline two changed\nline three\n';
+    const blame = await blameLine({ filePath, content: dirtyContent, line: 2, repoRoot });
+
+    assert.ok(blame);
+    assert.strictEqual(blame!.isUncommitted, false);
+    assert.strictEqual(blame!.summary, 'Second commit');
+    assert.strictEqual(blame!.originalLine, 1);
+  });
+
   it('fetches full commit details by sha', async () => {
     const content = fs.readFileSync(filePath, 'utf8');
     const blame = await blameLine({ filePath, content, line: 1, repoRoot });

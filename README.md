@@ -62,6 +62,8 @@ When a line hasn't been committed yet, the annotation says **"Uncommitted change
 
 Blame is computed against the **live editor buffer**: the extension pipes the buffer's contents to `git blame --contents -`. Lines you just typed are flagged correctly **before you save**, and line numbers never drift out of sync with what's on disk.
 
+While you type, edited lines read as uncommitted right away without running `git`. About a second after you stop typing, the buffer is blamed again, so a line you changed back to its committed text shows its commit again without saving.
+
 ### Rich hover: the commit and what it changed
 
 Hover the inline annotation at the end of the current line to open a popup containing:
@@ -184,7 +186,6 @@ For example, to show the short hash first with an absolute date:
 ## Known limitations
 
 - The time shown for uncommitted lines is when the file was last saved, not when that line changed. While the file has unsaved changes, no time is shown.
-- Between saves, any line you edit reads as uncommitted, even if you change it back to its committed text. Saving the file corrects it.
 - The remote URL and your `user.email` are read once per repository. After changing them with `git config` or `git remote`, run **Git Blame Solo: Refresh**.
 - Files larger than `gitBlameSolo.maxFileSizeKB` are skipped.
 - Only local files and the past revisions this extension opens are blamed. Other virtual or remote file systems aren't.

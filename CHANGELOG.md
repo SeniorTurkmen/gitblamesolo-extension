@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- A line you edit and then change back to its committed text shows its commit again about a second after you stop typing, instead of reading as uncommitted until you save. The buffer is blamed again whenever typing pauses.
+
 ## 0.1.2
 
 - The hover and the commit details panel link to the pull request a commit came from, when its message names one: GitHub merge and squash commits ("(#123)"), GitLab "See merge request", Bitbucket "(pull request #N)", and Azure DevOps "Merged PR N:". Other hosts get no pull request link.
