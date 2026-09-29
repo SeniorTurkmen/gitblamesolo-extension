@@ -16,6 +16,7 @@ export interface GitBlameSoloConfig {
   maxFileSizeBytes: number;
   uncommittedLabel: string;
   currentUserLabel: string;
+  showAuthorEmail: boolean;
   statusBarEnabled: boolean;
   statusBarTemplate: string;
   blameOptions: BlameOptions;
@@ -37,6 +38,7 @@ export function getConfig(): GitBlameSoloConfig {
     maxFileSizeBytes: cfg.get<number>('maxFileSizeKB', 5000) * 1024,
     uncommittedLabel: cfg.get<string>('uncommittedLabel', 'Uncommitted changes'),
     currentUserLabel: cfg.get<string>('currentUserLabel', 'You'),
+    showAuthorEmail: cfg.get<boolean>('showAuthorEmail', true),
     statusBarEnabled: cfg.get<boolean>('statusBar.enabled', false),
     statusBarTemplate: cfg.get<string>('statusBar.template', '${author}, ${date}'),
     blameOptions: {

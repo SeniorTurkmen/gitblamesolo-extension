@@ -66,7 +66,7 @@ Hover the inline annotation at the end of the current line to open a popup conta
 
 | Section | What you see |
 | --- | --- |
-| **Header** | Commit subject, author, absolute date, and short hash |
+| **Header** | Commit subject, author (with email), absolute date, and short hash |
 | **Body** | The full commit message body, if there is one |
 | **What changed** | A colored `diff` of the **entire changed block** the line belongs to (every contiguous line changed in the same hunk, not only the hovered line), with an added/removed line count |
 | **Actions** | **Open in Diff Editor**, **View changed files (N files)**, and **Open on GitHub** (or GitLab, Bitbucket, Azure DevOps) when the repository has a remote |
@@ -120,6 +120,7 @@ Open the Command Palette (<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P
 | `Git Blame Solo: Copy Commit Hash` | Copies the full hash of the commit that last changed the current line to the clipboard. |
 | `Git Blame Solo: Open Commit on Remote` | Opens the commit that last changed the current line on GitHub, GitLab, Bitbucket, or Azure DevOps. |
 | `Git Blame Solo: Refresh` | Re-reads everything cached from git: blame, repository roots, the remote URL, and your `user.email`. Use it after changing your git config or remotes. |
+| `Git Blame Solo: Hide Author Email` / `Show Author Email` | Hides or shows the author's email in the hover (saved to your user settings). Only the one that applies is listed. |
 
 None of the commands has a default shortcut. To add one, open **Keyboard Shortcuts** (<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>K</kbd> <kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>S</kbd>) and search for **Git Blame Solo**.
 
@@ -145,6 +146,7 @@ None of the commands has a default shortcut. To add one, open **Keyboard Shortcu
 | `gitBlameSolo.maxFileSizeKB` | `5000` | Files larger than this are skipped for performance. |
 | `gitBlameSolo.uncommittedLabel` | `"Uncommitted changes"` | Label shown for lines that haven't been committed yet. |
 | `gitBlameSolo.currentUserLabel` | `"You"` | Shown instead of the author's name in the annotation and status bar when the author's email matches your `git config user.email`. Empty always shows the name. |
+| `gitBlameSolo.showAuthorEmail` | `true` | Show the author's email next to their name in the hover. Also toggled by the **Show/Hide Author Email** commands. The inline annotation and status bar never show it; the commit details panel always does. |
 | `gitBlameSolo.statusBar.enabled` | `false` | Show blame for the current line in the status bar. Clicking it opens the commit details panel. |
 | `gitBlameSolo.statusBar.template` | `"${author}, ${date}"` | Template for the status bar item. Same placeholders as `decorationTemplate`. |
 | `gitBlameSolo.ignoreWhitespace` | `false` | Ignore whitespace-only changes when finding who last changed a line (`git blame -w`). |

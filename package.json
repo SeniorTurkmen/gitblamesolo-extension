@@ -97,6 +97,11 @@
           "default": "You",
           "description": "Shown instead of the author's name in the inline annotation and status bar when the author's email matches your git user.email. Leave empty to always show the name."
         },
+        "gitBlameSolo.showAuthorEmail": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the author's email next to their name in the hover. The inline annotation and status bar never show it; the commit details panel always does."
+        },
         "gitBlameSolo.statusBar.enabled": {
           "type": "boolean",
           "default": false,
@@ -162,6 +167,14 @@
       {
         "command": "gitBlameSolo.refresh",
         "title": "Git Blame Solo: Refresh"
+      },
+      {
+        "command": "gitBlameSolo.showAuthorEmail",
+        "title": "Git Blame Solo: Show Author Email"
+      },
+      {
+        "command": "gitBlameSolo.hideAuthorEmail",
+        "title": "Git Blame Solo: Hide Author Email"
       }
     ],
     "menus": {
@@ -169,6 +182,16 @@
         {
           "command": "gitBlameSolo.showCommitDetails",
           "group": "9_gitBlameSolo"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "gitBlameSolo.showAuthorEmail",
+          "when": "!config.gitBlameSolo.showAuthorEmail"
+        },
+        {
+          "command": "gitBlameSolo.hideAuthorEmail",
+          "when": "config.gitBlameSolo.showAuthorEmail"
         }
       ]
     }

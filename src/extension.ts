@@ -120,6 +120,19 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
   );
 
+  for (const [command, show] of [
+    ['gitBlameSolo.showAuthorEmail', true],
+    ['gitBlameSolo.hideAuthorEmail', false],
+  ] as const) {
+    context.subscriptions.push(
+      vscode.commands.registerCommand(command, async () => {
+        await vscode.workspace
+          .getConfiguration('gitBlameSolo')
+          .update('showAuthorEmail', show, vscode.ConfigurationTarget.Global);
+      }),
+    );
+  }
+
   context.subscriptions.push(
     vscode.commands.registerCommand('gitBlameSolo.toggle', async () => {
       const cfg = vscode.workspace.getConfiguration('gitBlameSolo');

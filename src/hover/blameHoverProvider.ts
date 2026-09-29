@@ -10,6 +10,7 @@ import { getLineDiffHunk } from '../git/gitDiff';
 import { getCommitDetails } from '../git/gitLog';
 import { getCommitLink } from '../git/gitRemote';
 import { resolveRepository } from '../git/gitRepository';
+import { formatAuthor } from '../util/authorFormat';
 import { formatDate } from '../util/dateFormat';
 import { countDiffStats, parseDiffHunkLines } from '../util/diffRender';
 
@@ -27,6 +28,11 @@ function buildShowDetailsCommandUri(
 function buildOpenDiffCommandUri(sha: string, repoRoot: string, relativePath: string): string {
   const args = encodeURIComponent(JSON.stringify([sha, repoRoot, relativePath]));
   return `command:gitBlameSolo.openDiff?${args}`;
+}
+
+/** Keeps "<email>" literal instead of letting Markdown turn it into an autolink. */
+function escapeAngleBrackets(text: string): string {
+  return text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function newMarkdown(): vscode.MarkdownString {
@@ -137,7 +143,7 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       const md = newMarkdown();
       md.appendMarkdown(`$(git-commit) **${blame.summary}**\n\n`);
       md.appendMarkdown(
-        `$(account) ${blame.authorName} &nbsp;&nbsp; $(clock) ${formatDate(blame.authorTimestamp, 'absolute')}\n\n`,
+        `$(account) ${escapeAngleBrackets(formatAuthor(blame.authorName, blame.authorEmail, config.showAuthorEmail))} &nbsp;&nbsp; $(clock) ${formatDate(blame.authorTimestamp, 'absolute')}\n\n`,
       );
       md.appendMarkdown(`\`${blame.sha.slice(0, 7)}\``);
       this.appendDiff(md, diffHunk, blame.sha, repo.rootFsPath, document.uri.fsPath);
@@ -147,7 +153,7 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     const md = newMarkdown();
     md.appendMarkdown(`$(git-commit) **${commit.summary}**\n\n`);
     md.appendMarkdown(
-      `$(account) ${commit.authorName} &nbsp;&nbsp; $(clock) ${formatDate(commit.authorTimestamp, 'absolute')}\n\n`,
+      `$(account) ${escapeAngleBrackets(formatAuthor(commit.authorName, commit.authorEmail, config.showAuthorEmail))} &nbsp;&nbsp; $(clock) ${formatDate(commit.authorTimestamp, 'absolute')}\n\n`,
     );
     if (commit.body) {
       md.appendMarkdown(`${commit.body}\n\n`);
