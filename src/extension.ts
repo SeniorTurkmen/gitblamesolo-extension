@@ -10,7 +10,8 @@ import { GitCliError, runGit } from './git/gitCli';
 import { blameLine } from './git/gitBlame';
 import { getCommitDiff } from './git/gitCommitDiff';
 import { getCommitDetails } from './git/gitLog';
-import { resolveRepository } from './git/gitRepository';
+import { invalidateRepositoryCache, resolveRepository } from './git/gitRepository';
+import { RepositoryWatcher } from './git/repositoryWatcher';
 import { buildGitShowUri, GIT_SHOW_SCHEME, GitShowContentProvider } from './git/gitShowContentProvider';
 import { BlameHoverProvider } from './hover/blameHoverProvider';
 import { CommitDetailsPanel } from './webview/commitDetailsPanel';
@@ -53,6 +54,19 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
   context.subscriptions.push(onConfigChanged(() => decorator.refreshNow()));
+  context.subscriptions.push(
+    new RepositoryWatcher({
+      onHeadChanged: () => {
+        blameCache.clear();
+        decorator.refreshNow();
+      },
+      onRepositoriesChanged: () => {
+        invalidateRepositoryCache();
+        blameCache.clear();
+        decorator.refreshNow();
+      },
+    }),
+  );
   context.subscriptions.push(
     vscode.workspace.registerTextDocumentContentProvider(GIT_SHOW_SCHEME, new GitShowContentProvider()),
   );

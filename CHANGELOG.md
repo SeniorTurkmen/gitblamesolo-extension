@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Fixed: the inline blame for a line could go blank after a hover was dismissed quickly. The cancelled git call cached `undefined`; calls whose results go into the shared caches are no longer cancelled.
+- Fixed: blame went stale after a commit, amend, checkout, pull, or reset (for example, freshly committed lines still showed "Uncommitted changes"). The blame cache is now cleared whenever a repository's HEAD moves.
 
 ## 0.1.0
 
