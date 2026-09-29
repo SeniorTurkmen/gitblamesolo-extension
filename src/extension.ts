@@ -5,6 +5,7 @@ import { CommitCache } from './cache/commitCache';
 import { CommitDiffCache } from './cache/commitDiffCache';
 import { LineDiffCache } from './cache/lineDiffCache';
 import { changeSetting } from './commands/changeSetting';
+import { showFileHistory, showHistory } from './commands/history';
 import { showLineHistory } from './commands/lineHistory';
 import { getConfig, onConfigChanged } from './config';
 import { CurrentLineBlameDecorator } from './decorations/currentLineDecorator';
@@ -209,6 +210,11 @@ export function activate(context: vscode.ExtensionContext): void {
       const current = cfg.get<boolean>('fileBlame.enabled', false);
       await cfg.update('fileBlame.enabled', !current, vscode.ConfigurationTarget.Global);
     }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('gitBlameSolo.showHistory', showHistory),
+    vscode.commands.registerCommand('gitBlameSolo.showFileHistory', showFileHistory),
   );
 
   context.subscriptions.push(

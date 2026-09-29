@@ -7,6 +7,7 @@ import { applyPatchReverse } from '../../src/git/gitApply';
 import { blameFile, toBlameInfo } from '../../src/git/gitBlame';
 import { buildHunkPatch, getCommitDiff, isRevertibleHunk } from '../../src/git/gitCommitDiff';
 import { getLineDiffHunk, getParentLine } from '../../src/git/gitDiff';
+import { getBranches, getHistoryPage } from '../../src/git/gitHistory';
 import { getLineHistory } from '../../src/git/gitLineHistory';
 import { repositoryGitConfigPath } from '../../src/git/gitConfigFiles';
 import { getCommitDetails } from '../../src/git/gitLog';
@@ -457,5 +458,110 @@ describe('repository-relative path', () => {
   it('is undefined outside the repository', async () => {
     assert.strictEqual(await repoRelativePath(repoRoot, path.join(os.tmpdir(), 'elsewhere.ts')), undefined);
     assert.strictEqual(await repoRelativePath(repoRoot, repoRoot), undefined);
+  });
+});
+
+describe('git history', () => {
+  let repoRoot: string;
+
+  /** Commits with a fixed date so --date-order is deterministic. */
+  function commit(message: string, time: number, author = 'Test User <test@example.com>'): void {
+    const date = `@${1700000000 + time} +0000`;
+    execFileSync('git', ['commit', '--allow-empty', '-m', message, `--author=${author}`], {
+      cwd: repoRoot,
+      env: { ...process.env, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date },
+    });
+  }
+
+  before(() => {
+    repoRoot = initRepo('gitblamesolo-history-');
+    fs.writeFileSync(path.join(repoRoot, 'a.txt'), 'one\n');
+    git(repoRoot, ['add', 'a.txt']);
+    commit('Add a', 1000);
+    git(repoRoot, ['switch', '-q', '-c', 'feature']);
+    commit('Feature work', 2000, 'Grace Hopper <grace@example.com>');
+    git(repoRoot, ['switch', '-q', 'main']);
+    fs.writeFileSync(path.join(repoRoot, 'a.txt'), 'two\n');
+    git(repoRoot, ['add', 'a.txt']);
+    commit('Change a', 3000);
+    git(repoRoot, ['tag', 'v1']);
+    git(repoRoot, ['switch', '-q', '-c', 'side']);
+    commit('Side work', 4000);
+    git(repoRoot, ['switch', '-q', 'main']);
+  });
+
+  after(() => removeRepo(repoRoot));
+
+  it('lists the current branch newest first, with refs', async () => {
+    const page = await getHistoryPage({ repoRoot, scope: { kind: 'head' }, skip: 0, limit: 10 });
+    assert.ok(page);
+    assert.deepStrictEqual(
+      page.entries.map((e) => e.summary),
+      ['Change a', 'Add a'],
+    );
+    assert.strictEqual(page.hasMore, false);
+    assert.deepStrictEqual(page.entries[0].refs, [
+      { kind: 'head', name: 'HEAD' },
+      { kind: 'branch', name: 'main' },
+      { kind: 'tag', name: 'v1' },
+    ]);
+    assert.deepStrictEqual(page.entries[0].parents, [page.entries[1].sha]);
+  });
+
+  it('lists every branch and pages through them', async () => {
+    const first = await getHistoryPage({ repoRoot, scope: { kind: 'all' }, skip: 0, limit: 2 });
+    assert.ok(first);
+    assert.deepStrictEqual(
+      first.entries.map((e) => e.summary),
+      ['Side work', 'Change a'],
+    );
+    assert.strictEqual(first.hasMore, true);
+    const second = await getHistoryPage({ repoRoot, scope: { kind: 'all' }, skip: 2, limit: 2 });
+    assert.deepStrictEqual(
+      second?.entries.map((e) => e.summary),
+      ['Feature work', 'Add a'],
+    );
+    assert.strictEqual(second?.hasMore, false);
+  });
+
+  it('lists one branch', async () => {
+    const page = await getHistoryPage({ repoRoot, scope: { kind: 'ref', ref: 'feature' }, skip: 0, limit: 10 });
+    assert.deepStrictEqual(
+      page?.entries.map((e) => e.summary),
+      ['Feature work', 'Add a'],
+    );
+  });
+
+  it('filters by author, message, and file', async () => {
+    const all = { kind: 'all' } as const;
+    const byAuthor = await getHistoryPage({ repoRoot, scope: all, author: 'GRACE', skip: 0, limit: 10 });
+    assert.deepStrictEqual(
+      byAuthor?.entries.map((e) => e.summary),
+      ['Feature work'],
+    );
+    const bySearch = await getHistoryPage({ repoRoot, scope: all, search: 'work', skip: 0, limit: 10 });
+    assert.deepStrictEqual(
+      bySearch?.entries.map((e) => e.summary),
+      ['Side work', 'Feature work'],
+    );
+    const byPath = await getHistoryPage({ repoRoot, scope: { kind: 'head' }, path: 'a.txt', skip: 0, limit: 10 });
+    assert.deepStrictEqual(
+      byPath?.entries.map((e) => e.summary),
+      ['Change a', 'Add a'],
+    );
+  });
+
+  it('is undefined for a ref that does not exist', async () => {
+    assert.strictEqual(
+      await getHistoryPage({ repoRoot, scope: { kind: 'ref', ref: 'no-such-branch' }, skip: 0, limit: 10 }),
+      undefined,
+    );
+  });
+
+  it('lists the branches with the current one marked', async () => {
+    const branches = await getBranches(repoRoot);
+    assert.strictEqual(branches.current, 'main');
+    assert.deepStrictEqual([...branches.local].sort(), ['feature', 'main', 'side']);
+    assert.deepStrictEqual(branches.remote, []);
   });
 });

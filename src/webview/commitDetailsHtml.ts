@@ -2,6 +2,7 @@ import { isRevertibleHunk } from '../git/gitCommitDiff';
 import { pullRequestLabel, RemoteCommitLink } from '../git/gitRemote';
 import { CommitDetails, CommitFileChange, DiffHunk, DiffLine, FileChangeStatus, FileDiff, SourceLocation } from '../types';
 import { formatDate } from '../util/dateFormat';
+import { escapeHtml } from './html';
 
 /** Everything the commit details page shows. */
 export interface CommitDetailsView {
@@ -395,13 +396,4 @@ function renderDiffLine(line: DiffLine, matchCommitLine: number | undefined): st
   const sourceClass = isSourceLine ? ' diff-line-source' : '';
   const title = isSourceLine ? ' title="Click to jump back to where this was opened from"' : '';
   return `<div class="diff-line diff-${line.kind}${sourceClass}"${title}><span class="diff-marker">${marker}</span>${escapeHtml(line.text)}</div>`;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
