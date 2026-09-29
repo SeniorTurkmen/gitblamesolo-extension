@@ -58,9 +58,9 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       return undefined;
     }
 
-    const controller = new AbortController();
-    token.onCancellationRequested(() => controller.abort());
-
+    // Results land in caches shared with the inline decorator, so git runs are
+    // never aborted on hover cancellation: an aborted run would cache `undefined`
+    // and blank the line until the document changes.
     const repo = await resolveRepository(document.uri);
     if (!repo || token.isCancellationRequested) {
       return undefined;
@@ -73,7 +73,6 @@ export class BlameHoverProvider implements vscode.HoverProvider {
         content: document.getText(),
         line,
         repoRoot: repo.rootFsPath,
-        signal: controller.signal,
       }),
     );
 
@@ -100,12 +99,11 @@ export class BlameHoverProvider implements vscode.HoverProvider {
           filePath: document.uri.fsPath,
           line: blame.originalLine,
           repoRoot: repo.rootFsPath,
-          signal: controller.signal,
         }),
     );
 
     const commit = await this.deps.commitCache.getOrCompute(blame.sha, () =>
-      getCommitDetails(blame.sha, repo.rootFsPath, controller.signal),
+      getCommitDetails(blame.sha, repo.rootFsPath),
     );
     const diffHunk = await diffHunkPromise;
 

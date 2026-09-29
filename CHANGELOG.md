@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed: the inline blame for a line could go blank after a hover was dismissed quickly. The cancelled git call cached `undefined`; calls whose results go into the shared caches are no longer cancelled.
+
 ## 0.1.0
 
 - Redesigned the hover's "What changed" section: VS Code codicons, a `+N`/`-N` diff stat, and rules separating the sections. The diff body is still a colored code block.
