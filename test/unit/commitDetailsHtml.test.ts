@@ -179,6 +179,25 @@ describe('renderCommitDetailsHtml', () => {
     });
   });
 
+  describe('folding', () => {
+    it('gives every file a fold button around its diff', () => {
+      const html = render({
+        commit: commit({ files: [{ status: 'M', path: 'src/a.ts' }, { status: 'M', path: 'src/b.ts' }] }),
+        diffs: [diff('src/a.ts'), diff('src/b.ts')],
+      });
+      assert.strictEqual(count(html, 'class="fold-btn"'), 2);
+      assert.strictEqual(count(html, 'class="file-body"'), 2);
+      assert.ok(html.includes('id="collapse-all"'));
+      assert.ok(html.includes('id="expand-all"'));
+    });
+
+    it('offers no fold-all buttons for a single file', () => {
+      const html = render();
+      assert.strictEqual(count(html, 'class="fold-btn"'), 1);
+      assert.ok(!html.includes('id="collapse-all"'));
+    });
+  });
+
   describe('focused file', () => {
     const files = commit({
       files: [

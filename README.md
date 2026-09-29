@@ -113,7 +113,7 @@ By default the popup only opens over the annotation, so hovering your code for o
 
 - The commit message, author, co-authors, date, and hash at the top. The button next to the hash copies it.
 - **Every file the commit touched**, each with its **full colored diff**. Added and removed lines are clearly marked.
-- Click a **file header** to open that file in the editor.
+- Click a **file header** to open that file in the editor. The arrow at its start folds or unfolds the file's diff, and **Collapse all** / **Expand all** fold every file at once.
 - The **Open Diff** button opens that file's change in the native diff editor.
 - **The line you started from is highlighted** inside its file's diff, so you don't lose your place in a large commit. Clicking the highlighted line takes you back to that spot in the editor.
 - **The file you came from is marked** with a colored border and an "Opened from this file" badge, and the panel scrolls to it. This works from the blame hover and from a file's history, even if the file had another name in that commit.

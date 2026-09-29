@@ -21,6 +21,10 @@ const COPY_ICON =
 const CHECK_ICON =
   '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M14.431 3.323l-8.47 10-.79-.036-3.35-4.77.818-.574 2.978 4.24 8.051-9.506.764.646z"/></svg>';
 
+// Codicon "chevron-down" (CC BY 4.0); turned to point right while the file is folded.
+const CHEVRON_ICON =
+  '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M7.976 10.072l4.357-4.357.62.618L8.284 11h-.618L3 6.333l.619-.618 4.357 4.357z"/></svg>';
+
 const STATUS_LABELS: Record<FileChangeStatus, string> = {
   A: 'Added',
   M: 'Modified',
@@ -90,6 +94,47 @@ export function renderCommitDetailsHtml(view: CommitDetailsView, nonce: string):
     white-space: pre-wrap;
     margin-bottom: 1rem;
     font-size: 0.9rem;
+  }
+  .files-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .fold-all {
+    display: flex;
+    gap: 0.25rem;
+  }
+  .fold-all button {
+    font-family: var(--vscode-font-family);
+    font-size: 0.75rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 3px;
+    border: 1px solid var(--vscode-button-border, transparent);
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    cursor: pointer;
+  }
+  .fold-all button:hover {
+    background: var(--vscode-button-secondaryHoverBackground);
+  }
+  .fold-btn {
+    flex-shrink: 0;
+    display: flex;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+  }
+  .fold-btn svg {
+    transition: transform 0.1s;
+  }
+  .file-section.folded .fold-btn svg {
+    transform: rotate(-90deg);
+  }
+  .file-section.folded .file-body {
+    display: none;
   }
   h3 {
     font-size: 0.85rem;
@@ -269,10 +314,35 @@ ${
     : ''
 }
 ${commit.body ? `<div class="body">${escapeHtml(commit.body)}</div>` : ''}
-<h3>Changed files (${commit.files.length})</h3>
+<div class="files-heading">
+  <h3>Changed files (${commit.files.length})</h3>
+  ${
+    commit.files.length > 1
+      ? '<div class="fold-all"><button id="collapse-all" title="Fold every file">Collapse all</button><button id="expand-all" title="Unfold every file">Expand all</button></div>'
+      : ''
+  }
+</div>
 ${sectionsHtml}
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi();
+  function setFolded(section, folded) {
+    section.classList.toggle('folded', folded);
+    const button = section.querySelector('.fold-btn');
+    button.setAttribute('aria-expanded', String(!folded));
+    button.title = folded ? 'Unfold this file' : 'Fold this file';
+  }
+  document.querySelectorAll('.fold-btn').forEach((el) => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const section = el.closest('.file-section');
+      setFolded(section, !section.classList.contains('folded'));
+    });
+  });
+  for (const [id, folded] of [['collapse-all', true], ['expand-all', false]]) {
+    document.getElementById(id)?.addEventListener('click', () => {
+      document.querySelectorAll('.file-section').forEach((section) => setFolded(section, folded));
+    });
+  }
   document.querySelectorAll('[data-path]').forEach((el) => {
     el.addEventListener('click', () => {
       vscode.postMessage({ type: 'openFile', path: el.getAttribute('data-path') });
@@ -356,6 +426,7 @@ function renderFileSection(view: CommitDetailsView, file: CommitFileChange, diff
   const focusBadge = isFocus ? '<span class="focus-badge" title="The commit details were opened for this file">Opened from this file</span>' : '';
 
   const header = `<div class="file-header" data-path="${escapeHtml(file.path)}" title="Click to open ${escapeHtml(statusLabel)}">
+    <button class="fold-btn" title="Fold this file" aria-label="Fold or unfold this file" aria-expanded="true">${CHEVRON_ICON}</button>
     <span class="status status-${escapeHtml(statusLetter)}">${escapeHtml(statusLetter)}</span>
     <span class="path">${oldPathHtml}${escapeHtml(file.path)}</span>
     ${focusBadge}
@@ -363,7 +434,7 @@ function renderFileSection(view: CommitDetailsView, file: CommitFileChange, diff
   </div>`;
 
   const body = renderDiffBody(file.path, diff, sourceCommitLineFor(view.source, file.path));
-  return `<div class="file-section${isFocus ? ' file-section-focus' : ''}">${header}${body}</div>`;
+  return `<div class="file-section${isFocus ? ' file-section-focus' : ''}">${header}<div class="file-body">${body}</div></div>`;
 }
 
 function renderRemoteButtons(link: RemoteCommitLink | undefined): string {
