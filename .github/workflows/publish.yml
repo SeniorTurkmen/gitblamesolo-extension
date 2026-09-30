@@ -121,6 +121,32 @@ jobs:
         with:
           name: vsix
 
+      # The Open VSX namespace is lowercase, and it refuses a trusted publishing token issued for
+      # "SeniorTurkmen" when publishing. Extension IDs ignore case, so this changes nothing for users.
+      - name: Use the Open VSX namespace as the publisher
+        env:
+          VSIX: ${{ needs.package.outputs.vsix }}
+        run: |
+          python3 - "$VSIX" <<'PY'
+          import re, shutil, sys, zipfile
+          path = sys.argv[1]
+          fixes = {
+              'extension/package.json': (r'"publisher":\s*"SeniorTurkmen"', '"publisher": "seniorturkmen"'),
+              'extension.vsixmanifest': (r'Publisher="SeniorTurkmen"', 'Publisher="seniorturkmen"'),
+          }
+          with zipfile.ZipFile(path) as source, zipfile.ZipFile(path + '.tmp', 'w', zipfile.ZIP_DEFLATED) as target:
+              for item in source.infolist():
+                  data = source.read(item.filename)
+                  if item.filename in fixes:
+                      pattern, replacement = fixes[item.filename]
+                      text, count = re.subn(pattern, replacement, data.decode('utf-8'))
+                      if count != 1:
+                          sys.exit(f'Expected one publisher in {item.filename}, found {count}')
+                      data = text.encode('utf-8')
+                  target.writestr(item, data)
+          shutil.move(path + '.tmp', path)
+          PY
+
       - name: Publish to Open VSX
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
