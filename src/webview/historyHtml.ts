@@ -19,6 +19,8 @@ export interface HistoryRowOptions {
   currentUserLabel: string;
   currentUserEmail?: string;
   now?: number;
+  /** For a file's history: buttons that open the file at each commit or compare it with the working copy. */
+  fileActions?: boolean;
 }
 
 function laneX(lane: number): number {
@@ -78,7 +80,13 @@ export function renderHistoryRows(
           formatDate(entry.authorTimestamp, options.dateStyle, undefined, options.now),
         )}</span>` +
         `<span class="sha">${escapeHtml(entry.sha.slice(0, 7))}</span>` +
-        `<button class="copy" title="Copy commit hash" aria-label="Copy commit hash">Copy</button>` +
+        `<span class="actions">` +
+        (options.fileActions
+          ? `<button class="act open-file" title="Open the file as it was in this commit">Open</button>` +
+            `<button class="act compare" title="Compare the file in this commit with your working copy">Compare</button>`
+          : '') +
+        `<button class="act copy" title="Copy commit hash" aria-label="Copy commit hash">Copy</button>` +
+        `</span>` +
         `</div>`
       );
     })
@@ -184,7 +192,7 @@ export function renderHistoryShell(view: HistoryShellView, nonce: string): strin
   #list { --graph-width: 0px; }
   .row {
     display: grid;
-    grid-template-columns: var(--graph-width) minmax(0, 1fr) minmax(6em, 14em) 9em 5.5em 3.5em;
+    grid-template-columns: var(--graph-width) minmax(0, 1fr) minmax(6em, 14em) 9em 5.5em auto;
     align-items: center;
     column-gap: 8px;
     height: ${ROW_HEIGHT}px;
@@ -199,15 +207,16 @@ export function renderHistoryShell(view: HistoryShellView, nonce: string): strin
   .graph { width: var(--graph-width); height: ${ROW_HEIGHT}px; overflow: visible; }
   .graph line { stroke-width: 2; fill: none; }
   .graph circle { stroke: var(--vscode-editor-background); stroke-width: 1.5; }
-  .row:not(:has(.graph-cell)) { grid-template-columns: minmax(0, 1fr) minmax(6em, 14em) 9em 5.5em 3.5em; }
+  .row:not(:has(.graph-cell)) { grid-template-columns: minmax(0, 1fr) minmax(6em, 14em) 9em 5.5em auto; }
   .summary { overflow: hidden; text-overflow: ellipsis; }
   .author, .date { overflow: hidden; text-overflow: ellipsis; color: var(--vscode-descriptionForeground); }
   .author { cursor: pointer; }
   .author:hover { text-decoration: underline; color: var(--vscode-textLink-foreground); }
   .row.selected .author, .row.selected .date, .row.selected .sha { color: inherit; }
   .sha { font-family: var(--vscode-editor-font-family, monospace); color: var(--vscode-descriptionForeground); }
-  .copy { visibility: hidden; padding: 0 6px; font-size: 0.9em; }
-  .row:hover .copy, .row.selected .copy { visibility: visible; }
+  .actions { display: flex; gap: 4px; visibility: hidden; }
+  .act { padding: 0 6px; font-size: 0.9em; }
+  .row:hover .actions, .row.selected .actions { visibility: visible; }
   .ref {
     display: inline-block;
     margin-right: 6px;
@@ -282,6 +291,10 @@ export function renderHistoryShell(view: HistoryShellView, nonce: string): strin
     if (authorCell) {
       author.value = authorCell.dataset.author;
       sendFilter();
+    } else if (e.target.closest('.open-file')) {
+      vscode.postMessage({ type: 'openFileAtCommit', sha: row.dataset.sha, path: row.dataset.path });
+    } else if (e.target.closest('.compare')) {
+      vscode.postMessage({ type: 'compareWithWorkingFile', sha: row.dataset.sha, path: row.dataset.path });
     } else if (e.target.closest('.copy')) {
       vscode.postMessage({ type: 'copySha', sha: row.dataset.sha });
     } else {

@@ -7,6 +7,7 @@ import { LineDiffCache } from './cache/lineDiffCache';
 import { changeSetting } from './commands/changeSetting';
 import { showAuthorHistory, showFileHistory, showHistory } from './commands/history';
 import { showLineHistory } from './commands/lineHistory';
+import { activeRepoFile, compareWithWorkingFile, openFileAtRevision, pickRevision } from './commands/revision';
 import { getConfig, onConfigChanged } from './config';
 import { CurrentLineBlameDecorator } from './decorations/currentLineDecorator';
 import { FileBlameDecorator } from './decorations/fileBlameDecorator';
@@ -253,6 +254,37 @@ export function activate(context: vscode.ExtensionContext): void {
     }
     return { blame, repoRoot: target.repoRoot, document, line };
   }
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'gitBlameSolo.openFileAtRevision',
+      async (repoRootArg?: unknown, shaArg?: string, relativePathArg?: string) => {
+        if (typeof repoRootArg === 'string' && shaArg && relativePathArg) {
+          await openFileAtRevision(repoRootArg, shaArg, relativePathArg);
+          return;
+        }
+        const file = await activeRepoFile(repoRootArg);
+        const entry = file && (await pickRevision(file, 'Pick a commit to open the file as it was then'));
+        if (file && entry) {
+          await openFileAtRevision(file.repoRoot, entry.sha, entry.path ?? file.relativePath);
+        }
+      },
+    ),
+    vscode.commands.registerCommand(
+      'gitBlameSolo.compareWithRevision',
+      async (repoRootArg?: unknown, shaArg?: string, revisionPathArg?: string, workingPathArg?: string) => {
+        if (typeof repoRootArg === 'string' && shaArg && revisionPathArg && workingPathArg) {
+          await compareWithWorkingFile(repoRootArg, shaArg, revisionPathArg, workingPathArg);
+          return;
+        }
+        const file = await activeRepoFile(repoRootArg);
+        const entry = file && (await pickRevision(file, 'Pick a commit to compare its version of the file with yours'));
+        if (file && entry) {
+          await compareWithWorkingFile(file.repoRoot, entry.sha, entry.path ?? file.relativePath, file.relativePath);
+        }
+      },
+    ),
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand('gitBlameSolo.showAuthorHistory', async (repoRootArg?: string, authorArg?: string) => {

@@ -215,6 +215,14 @@
         "title": "Git Blame Solo: Show Author History"
       },
       {
+        "command": "gitBlameSolo.openFileAtRevision",
+        "title": "Git Blame Solo: Open File at Revision…"
+      },
+      {
+        "command": "gitBlameSolo.compareWithRevision",
+        "title": "Git Blame Solo: Compare with Revision…"
+      },
+      {
         "command": "gitBlameSolo.showLineHistory",
         "title": "Git Blame Solo: Show Line History"
       },
@@ -262,6 +270,16 @@
           "command": "gitBlameSolo.toggleFileBlame",
           "when": "(resourceScheme == file || resourceScheme == gitBlameSoloShow) && config.gitBlameSolo.editorTitleButtons",
           "group": "navigation@91"
+        },
+        {
+          "command": "gitBlameSolo.openFileAtRevision",
+          "when": "(resourceScheme == file || resourceScheme == gitBlameSoloShow)",
+          "group": "9_gitBlameSolo@1"
+        },
+        {
+          "command": "gitBlameSolo.compareWithRevision",
+          "when": "(resourceScheme == file || resourceScheme == gitBlameSoloShow)",
+          "group": "9_gitBlameSolo@2"
         }
       ],
       "editor/title/context": [
@@ -269,11 +287,31 @@
           "command": "gitBlameSolo.showFileHistory",
           "when": "resourceScheme == file",
           "group": "9_gitBlameSolo"
+        },
+        {
+          "command": "gitBlameSolo.openFileAtRevision",
+          "when": "resourceScheme == file",
+          "group": "9_gitBlameSolo"
+        },
+        {
+          "command": "gitBlameSolo.compareWithRevision",
+          "when": "resourceScheme == file",
+          "group": "9_gitBlameSolo"
         }
       ],
       "explorer/context": [
         {
           "command": "gitBlameSolo.showFileHistory",
+          "when": "resourceScheme == file && !explorerResourceIsFolder",
+          "group": "9_gitBlameSolo"
+        },
+        {
+          "command": "gitBlameSolo.openFileAtRevision",
+          "when": "resourceScheme == file && !explorerResourceIsFolder",
+          "group": "9_gitBlameSolo"
+        },
+        {
+          "command": "gitBlameSolo.compareWithRevision",
           "when": "resourceScheme == file && !explorerResourceIsFolder",
           "group": "9_gitBlameSolo"
         }

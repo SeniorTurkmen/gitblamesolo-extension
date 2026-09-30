@@ -41,6 +41,10 @@ describe('history view', () => {
     await vscode.window.showTextDocument(fileUri);
   });
 
+  function sha(): string {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot }).toString().trim();
+  }
+
   after(async () => {
     await vscode.commands.executeCommand('workbench.action.closeAllEditors');
     try {
@@ -64,6 +68,27 @@ describe('history view', () => {
     const title = `Git Log: ${path.basename(repoRoot)}`;
     const labels = await waitForTab(title);
     assert.ok(labels.includes(title), labels.join(', '));
+  });
+
+  it('opens the file as it was in a commit', async () => {
+    fs.writeFileSync(path.join(repoRoot, 'notes.txt'), 'one\ntwo\n');
+    await vscode.commands.executeCommand('gitBlameSolo.openFileAtRevision', repoRoot, sha(), 'notes.txt');
+    const document = vscode.window.activeTextEditor?.document;
+    assert.strictEqual(document?.uri.scheme, 'gitBlameSoloShow');
+    assert.strictEqual(document?.getText(), 'one\n');
+  });
+
+  it('compares the file in a commit with the working copy', async () => {
+    const commitSha = sha();
+    await vscode.commands.executeCommand('gitBlameSolo.compareWithRevision', repoRoot, commitSha, 'notes.txt', 'notes.txt');
+    const diffs = vscode.window.tabGroups.all
+      .flatMap((group) => group.tabs)
+      .filter((tab) => tab.input instanceof vscode.TabInputTextDiff);
+    assert.strictEqual(diffs.length, 1);
+    const input = diffs[0].input as vscode.TabInputTextDiff;
+    assert.strictEqual(input.original.scheme, 'gitBlameSoloShow');
+    assert.strictEqual(input.modified.scheme, 'file');
+    assert.strictEqual(diffs[0].label, `notes.txt (${commitSha.slice(0, 7)} ↔ Working Copy)`);
   });
 
   it("reuses the repository's panel for its git log", async () => {
