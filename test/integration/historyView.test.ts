@@ -89,6 +89,8 @@ describe('history view', () => {
     const input = diffs[0].input as vscode.TabInputTextDiff;
     assert.strictEqual(input.original.scheme, 'gitBlameSoloShow');
     assert.strictEqual(input.modified.scheme, 'file');
+    // The same path on both sides, so VS Code doesn't present the pair as a rename.
+    assert.strictEqual(input.original.path, input.modified.path);
     assert.strictEqual(diffs[0].label, `notes.txt (${commitSha.slice(0, 7)} ↔ Working Copy)`);
   });
 

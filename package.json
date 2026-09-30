@@ -2,7 +2,7 @@
   "name": "gitblamesolo",
   "displayName": "Git Blame Solo",
   "description": "Shows who changed the current line, when, and with which commit, inline and on hover, plus a git log with a branch graph and file history.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "SeniorTurkmen",
   "license": "MIT",
   "private": true,

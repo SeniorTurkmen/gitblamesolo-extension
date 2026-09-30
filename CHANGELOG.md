@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
 - Added **comparisons**: **Git Blame Solo: Compare Branches, Tags, or Commits…** opens every file that differs between two branches, tags, or commits, or between one and your working copy, in one multi-diff editor. It is also in the Source Control title bar and on each commit in the git log. **Compare File Between Revisions…** diffs a file between two of its commits.
 - Added **previous versions of a file**: in a file's history, **Open** opens the file as it was in a commit, and **Compare** diffs that version against your working copy, following renames. **Git Blame Solo: Open File at Revision…** and **Compare with Revision…** do the same from a list of the file's commits, from the editor title bar's **…** menu, the Explorer, and editor tabs.
