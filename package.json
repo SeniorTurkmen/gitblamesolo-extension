@@ -1,8 +1,8 @@
 {
   "name": "gitblamesolo",
   "displayName": "Git Blame Solo",
-  "description": "Shows who changed the current line, when, and with which commit — inline and on hover.",
-  "version": "0.1.2",
+  "description": "Shows who changed the current line, when, and with which commit, inline and on hover, plus a git log with a branch graph and file history.",
+  "version": "0.2.0",
   "publisher": "SeniorTurkmen",
   "license": "MIT",
   "private": true,
@@ -24,7 +24,9 @@
     "blame",
     "history",
     "diff",
-    "commit"
+    "commit",
+    "log",
+    "graph"
   ],
   "activationEvents": [
     "workspaceContains:.git",
@@ -152,6 +154,11 @@
           "default": true,
           "description": "Tint the file blame column by how recent each line's commit is, from blue for the oldest commits in the file to orange for the newest."
         },
+        "gitBlameSolo.editorTitleButtons": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the File History and Toggle File Blame buttons in the editor title bar."
+        },
         "gitBlameSolo.exclude": {
           "type": "array",
           "items": {
@@ -173,7 +180,8 @@
       },
       {
         "command": "gitBlameSolo.toggleFileBlame",
-        "title": "Git Blame Solo: Toggle File Blame"
+        "title": "Git Blame Solo: Toggle File Blame",
+        "icon": "$(list-flat)"
       },
       {
         "command": "gitBlameSolo.showCommitDetails",
@@ -186,6 +194,16 @@
       {
         "command": "gitBlameSolo.openCommitOnRemote",
         "title": "Git Blame Solo: Open Commit on Remote"
+      },
+      {
+        "command": "gitBlameSolo.showHistory",
+        "title": "Git Blame Solo: Show Git Log",
+        "icon": "$(git-commit)"
+      },
+      {
+        "command": "gitBlameSolo.showFileHistory",
+        "title": "Git Blame Solo: Show File History",
+        "icon": "$(history)"
       },
       {
         "command": "gitBlameSolo.showLineHistory",
@@ -223,6 +241,46 @@
         {
           "command": "gitBlameSolo.hideAuthorEmail",
           "when": "config.gitBlameSolo.showAuthorEmail"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "gitBlameSolo.showFileHistory",
+          "when": "(resourceScheme == file || resourceScheme == gitBlameSoloShow) && config.gitBlameSolo.editorTitleButtons",
+          "group": "navigation@90"
+        },
+        {
+          "command": "gitBlameSolo.toggleFileBlame",
+          "when": "(resourceScheme == file || resourceScheme == gitBlameSoloShow) && config.gitBlameSolo.editorTitleButtons",
+          "group": "navigation@91"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "gitBlameSolo.showFileHistory",
+          "when": "resourceScheme == file",
+          "group": "9_gitBlameSolo"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "gitBlameSolo.showFileHistory",
+          "when": "resourceScheme == file && !explorerResourceIsFolder",
+          "group": "9_gitBlameSolo"
+        }
+      ],
+      "scm/title": [
+        {
+          "command": "gitBlameSolo.showHistory",
+          "when": "scmProvider == git",
+          "group": "navigation"
+        }
+      ],
+      "scm/resourceState/context": [
+        {
+          "command": "gitBlameSolo.showFileHistory",
+          "when": "scmProvider == git",
+          "group": "9_gitBlameSolo"
         }
       ]
     }

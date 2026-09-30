@@ -5,11 +5,11 @@
 [![VS Code](https://img.shields.io/badge/VS%20Code-%5E1.90.0-007ACC.svg)](https://code.visualstudio.com/)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#contributing)
 
-**Git Blame Solo answers "who changed this line, when, and why?" without making you leave the editor.**
+**Git Blame Solo answers "who changed this line, when, and why?" and shows how the code got there, without making you leave the editor.**
 
 Move your cursor to any line and a quiet annotation at the end of it shows the author, how long ago it changed, and the commit message. Hover the line to see the full commit and the exact change it introduced. One more click gives you every file in that commit with colored diffs, and you can revert a single hunk from there if you need to.
 
-It does one thing, stays out of the way, and has no dependencies beyond the `git` you already have installed.
+For the bigger picture, the git log shows the repository's commits with a branch graph, and a file's history lists every commit that changed it. It stays out of the way and has no dependencies beyond the `git` you already have installed.
 
 ![Git Blame Solo overview](docs/images/overview.png)
 
@@ -24,11 +24,13 @@ It does one thing, stays out of the way, and has no dependencies beyond the `git
   - [Rich hover: the commit and what it changed](#rich-hover-the-commit-and-what-it-changed)
   - [Native diff editor](#native-diff-editor)
   - [Commit details panel](#commit-details-panel)
+  - [Git log and file history](#git-log-and-file-history)
   - [Line history](#line-history)
   - [Step back through a line's history](#step-back-through-a-lines-history)
   - [Revert a single hunk](#revert-a-single-hunk)
   - [Commands](#commands)
 - [Requirements](#requirements)
+- [Installation](#installation)
 - [Settings](#settings)
 - [Known limitations](#known-limitations)
 - [Development](#development)
@@ -59,7 +61,7 @@ Jane Doe, 3 days ago • Fix race condition in session refresh
 
 ### File blame
 
-Turn on `gitBlameSolo.fileBlame.enabled`, or run **Git Blame Solo: Toggle File Blame**, to show blame for every line of the file in a column before the text:
+Turn on `gitBlameSolo.fileBlame.enabled`, or run **Git Blame Solo: Toggle File Blame** (also a button in the editor title bar), to show blame for every line of the file in a column before the text:
 
 ```
 Jane Doe, 3 days ago    export function refresh() {
@@ -112,11 +114,34 @@ By default the popup only opens over the annotation, so hovering your code for o
 
 - The commit message, author, co-authors, date, and hash at the top. The button next to the hash copies it.
 - **Every file the commit touched**, each with its **full colored diff**. Added and removed lines are clearly marked.
-- Click a **file header** to open that file in the editor.
+- Click a **file header** to open that file in the editor. The arrow at its start folds or unfolds the file's diff, and **Collapse all** / **Expand all** fold every file at once.
 - The **Open Diff** button opens that file's change in the native diff editor.
 - **The line you started from is highlighted** inside its file's diff, so you don't lose your place in a large commit. Clicking the highlighted line takes you back to that spot in the editor.
+- **The file you came from is marked** with a colored border and an "Opened from this file" badge, and the panel scrolls to it. The commit's other files start folded, so that file stands out. This works from the blame hover and from a file's history, even if the file had another name in that commit.
 
 ![Commit details panel listing every changed file with diffs](docs/images/commit-panel.png)
+
+![Commit details opened from a file's history: the other files are folded and the file you came from is outlined with an "Opened from this file" badge](docs/images/commit-details-focus.png)
+
+### Git log and file history
+
+**Git Blame Solo: Show Git Log** (also the commit icon in the Source Control view's title bar) opens a panel listing the repository's commits, newest first, with a **commit graph** showing how branches split and merge. Branches, remote branches, and tags are shown as badges on their commits, and the checked-out branch is highlighted.
+
+![Git log panel with the commit graph, branch and tag badges, authors, dates, and hashes](docs/images/git-log.png)
+
+- **Pick which history to show:** the current branch, all branches (including remote branches and tags), or any single local or remote branch.
+- **Search** commit messages and **filter by author** (name or email). Both match the text as typed, ignoring case.
+- **File history:** **Git Blame Solo: Show File History** (the history icon in the editor title bar, or the right-click menu of a file in the Explorer, an editor tab, or the Source Control view) shows only the commits that changed that file, following renames. Clear the file chip in the toolbar to see every commit again. A commit opened from a file's history marks that file in the commit details panel.
+- **Click a commit** (or press <kbd>Enter</kbd> on it) to open the commit details panel with its diffs. The button next to the hash copies it. Use the arrow keys to move between commits.
+- Commits load 200 at a time; **Load more** fetches the next page.
+
+The graph is hidden while a search, author, or file filter is on, because the filtered list leaves out the commits the lines would pass through.
+
+![Searching commit messages in the git log, then switching from all branches to one branch](docs/images/git-log.gif)
+
+Opening a commit from a file's history takes you straight to that file in the commit details panel, with the commit's other files folded:
+
+![File history of one file; clicking a commit opens its details with that file marked and the other files folded, then Expand all and Collapse all](docs/images/file-history.gif)
 
 ### Line history
 
@@ -153,6 +178,8 @@ Open the Command Palette (<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P
 | `Git Blame Solo: Toggle File Blame` | Turns the file blame column on or off (saved to your user settings). |
 | `Git Blame Solo: Show Commit Details` | Opens the commit details panel for the line under the cursor. Also available from the editor's right-click menu. |
 | `Git Blame Solo: Copy Commit Hash` | Copies the full hash of the commit that last changed the current line to the clipboard. |
+| `Git Blame Solo: Show Git Log` | Opens the git log with the commit graph for the repository of the active file (or one you pick). |
+| `Git Blame Solo: Show File History` | Opens the git log filtered to the commits that changed the active file. |
 | `Git Blame Solo: Show Line History` | Lists every commit that changed the current line. Picking one opens its change in the diff editor. |
 | `Git Blame Solo: Blame Previous Revision` | Compares the file as it was before the commit that last changed the current line with its current version, at that line. |
 | `Git Blame Solo: Open Commit on Remote` | Opens the commit that last changed the current line on GitHub, GitLab, Bitbucket, or Azure DevOps. |
@@ -168,6 +195,16 @@ None of the commands has a default shortcut. To add one, open **Keyboard Shortcu
 - VS Code **1.90** or later.
 - `git` available on your `PATH`. If it isn't, the extension shows a one-time warning and turns off blame and hover.
 - The file must be inside a git repository. Files outside a repository are ignored.
+
+## Installation
+
+Search for **Git Blame Solo** in the Extensions view, or run:
+
+```bash
+code --install-extension SeniorTurkmen.gitblamesolo
+```
+
+It is published to the Visual Studio Marketplace and to Open VSX.
 
 ## Settings
 
@@ -195,6 +232,7 @@ Every setting below can also be changed from the Command Palette with **Git Blam
 | `gitBlameSolo.fileBlame.enabled` | `false` | Show blame for every line of the file in a column before the text. Also toggled by **Git Blame Solo: Toggle File Blame**. |
 | `gitBlameSolo.fileBlame.template` | `"${author}, ${date}"` | Template for the file blame column. Same placeholders as `decorationTemplate`. |
 | `gitBlameSolo.fileBlame.heatmap` | `true` | Tint the file blame column by how recent each line's commit is, from blue (oldest) to orange (newest). |
+| `gitBlameSolo.editorTitleButtons` | `true` | Show the **File History** and **Toggle File Blame** buttons in the editor title bar. |
 
 For example, to show the short hash first with an absolute date:
 
@@ -235,8 +273,8 @@ src/
 ├── cache/              # per-document / per-commit caches
 ├── decorations/        # end-of-line annotation
 ├── hover/              # hover provider
-├── webview/            # commit details panel
-└── util/               # date formatting, diff rendering
+├── webview/            # commit details and git log panels
+└── util/               # date formatting, diff rendering, commit graph layout
 ```
 
 ### Testing

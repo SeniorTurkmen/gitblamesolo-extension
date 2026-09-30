@@ -60,3 +60,20 @@ async function resolveUncached(uri: vscode.Uri): Promise<GitRepositoryContext | 
     throw err;
   }
 }
+
+/** The repositories open in the window: the git extension's list, or the workspace folders inside a repository. */
+export async function listRepositories(): Promise<GitRepositoryContext[]> {
+  const api = getBuiltinGitApi();
+  if (api && api.repositories.length > 0) {
+    return api.repositories.map((repo) => ({ rootUri: repo.rootUri, rootFsPath: repo.rootUri.fsPath }));
+  }
+  const found = new Map<string, GitRepositoryContext>();
+  for (const folder of vscode.workspace.workspaceFolders ?? []) {
+    // resolveRepository looks up the directory a file is in, so ask about a (possibly missing) file in the folder.
+    const repo = await resolveRepository(vscode.Uri.joinPath(folder.uri, 'file'));
+    if (repo) {
+      found.set(repo.rootFsPath, repo);
+    }
+  }
+  return [...found.values()];
+}

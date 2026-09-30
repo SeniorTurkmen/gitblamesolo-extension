@@ -178,4 +178,61 @@ describe('renderCommitDetailsHtml', () => {
       assert.strictEqual(count(render(), 'diff-line-source"'), 0);
     });
   });
+
+  describe('folding', () => {
+    it('gives every file a fold button around its diff', () => {
+      const html = render({
+        commit: commit({ files: [{ status: 'M', path: 'src/a.ts' }, { status: 'M', path: 'src/b.ts' }] }),
+        diffs: [diff('src/a.ts'), diff('src/b.ts')],
+      });
+      assert.strictEqual(count(html, 'class="fold-btn"'), 2);
+      assert.strictEqual(count(html, 'class="file-body"'), 2);
+      assert.ok(html.includes('id="collapse-all"'));
+      assert.ok(html.includes('id="expand-all"'));
+    });
+
+    it('offers no fold-all buttons for a single file', () => {
+      const html = render();
+      assert.strictEqual(count(html, 'class="fold-btn"'), 1);
+      assert.ok(!html.includes('id="collapse-all"'));
+    });
+  });
+
+  describe('focused file', () => {
+    const files = commit({
+      files: [
+        { status: 'M', path: 'src/b.ts' },
+        { status: 'R', path: 'src/new.ts', oldPath: 'src/old.ts' },
+      ],
+    });
+
+    it('marks the section of the file the panel was opened for', () => {
+      const html = render({ commit: files, diffs: [diff('src/b.ts'), diff('src/new.ts')], focusPath: 'src/new.ts' });
+      assert.strictEqual(count(html, 'file-section-focus"'), 1);
+      assert.strictEqual(count(html, 'Opened from this file'), 1);
+      assert.ok(html.indexOf('file-section-focus"') > html.indexOf('data-path="src/b.ts"'));
+    });
+
+    it('matches a renamed file by its old path too', () => {
+      const html = render({ commit: files, diffs: [], focusPath: 'src/old.ts' });
+      assert.strictEqual(count(html, 'file-section-focus"'), 1);
+    });
+
+    it('folds the other files and leaves the focused one open', () => {
+      const html = render({ commit: files, diffs: [diff('src/b.ts'), diff('src/new.ts')], focusPath: 'src/new.ts' });
+      assert.strictEqual(count(html, '<div class="file-section folded">'), 1);
+      assert.strictEqual(count(html, '<div class="file-section file-section-focus">'), 1);
+      assert.strictEqual(count(html, 'aria-expanded="false"'), 1);
+    });
+
+    it('folds nothing when the focused file is not in the commit', () => {
+      const html = render({ commit: files, diffs: [], focusPath: 'src/elsewhere.ts' });
+      assert.strictEqual(count(html, '<div class="file-section folded">'), 0);
+      assert.strictEqual(count(html, 'aria-expanded="false"'), 0);
+    });
+
+    it('marks nothing without a focused file', () => {
+      assert.strictEqual(count(render({ commit: files }), 'file-section-focus"'), 0);
+    });
+  });
 });

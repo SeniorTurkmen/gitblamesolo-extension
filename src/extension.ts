@@ -5,6 +5,7 @@ import { CommitCache } from './cache/commitCache';
 import { CommitDiffCache } from './cache/commitDiffCache';
 import { LineDiffCache } from './cache/lineDiffCache';
 import { changeSetting } from './commands/changeSetting';
+import { showFileHistory, showHistory } from './commands/history';
 import { showLineHistory } from './commands/lineHistory';
 import { getConfig, onConfigChanged } from './config';
 import { CurrentLineBlameDecorator } from './decorations/currentLineDecorator';
@@ -212,6 +213,11 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('gitBlameSolo.showHistory', showHistory),
+    vscode.commands.registerCommand('gitBlameSolo.showFileHistory', showFileHistory),
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('gitBlameSolo.toggle', async () => {
       const cfg = vscode.workspace.getConfiguration('gitBlameSolo');
       const current = cfg.get<boolean>('enabled', true);
@@ -258,6 +264,7 @@ export function activate(context: vscode.ExtensionContext): void {
         sourceLineArg?: number,
         sourceCommitLineArg?: number,
         sourceCommitPathArg?: string,
+        focusPathArg?: string,
       ) => {
         let sha = shaArg;
         let repoRoot = repoRootArg;
@@ -292,7 +299,7 @@ export function activate(context: vscode.ExtensionContext): void {
           sourceUri && sourceCommitPath && sourceCommitLine !== undefined
             ? { uri: sourceUri, commitPath: sourceCommitPath, line: sourceLine ?? 0, commitLine: sourceCommitLine }
             : undefined;
-        CommitDetailsPanel.show(commit, diffs, repoRoot, source, remoteLink);
+        CommitDetailsPanel.show(commit, diffs, repoRoot, source, remoteLink, focusPathArg ?? source?.commitPath);
       },
     ),
   );
