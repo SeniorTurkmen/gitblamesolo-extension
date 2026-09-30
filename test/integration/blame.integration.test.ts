@@ -677,6 +677,18 @@ describe('uncommitted hunk', () => {
     assert.ok(hunk?.includes('-line 26\n+second') && !hunk.includes('first'), hunk);
   });
 
+  it('shows a change apart from another a few lines away', async () => {
+    const rows = Array.from({ length: 12 }, (_, i) => `row ${i + 1}`);
+    fs.writeFileSync(path.join(repoRoot, 'c.txt'), lines(rows));
+    git(repoRoot, ['add', 'c.txt']);
+    git(repoRoot, ['commit', '-m', 'Add c']);
+    const current = [...rows];
+    current[3] = 'near one';
+    current[6] = 'near two';
+    const hunk = await getUncommittedHunk(repoRoot, 'c.txt', lines(current), 3);
+    assert.strictEqual(hunk, ['@@ -1,6 +1,6 @@', ' row 1', ' row 2', ' row 3', '-row 4', '+near one', ' row 5', ' row 6'].join('\n'));
+  });
+
   it('shows every line of a new file as added', async () => {
     assert.strictEqual(await getUncommittedHunk(repoRoot, 'new.txt', 'x\ny\n', 1), '@@ -0,0 +1,2 @@\n+x\n+y');
   });
