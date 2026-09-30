@@ -25,6 +25,9 @@ For the bigger picture, the git log shows the repository's commits with a branch
   - [Native diff editor](#native-diff-editor)
   - [Commit details panel](#commit-details-panel)
   - [Git log and file history](#git-log-and-file-history)
+  - [Author history](#author-history)
+  - [Previous versions of a file](#previous-versions-of-a-file)
+  - [Compare branches, tags, and commits](#compare-branches-tags-and-commits)
   - [Line history](#line-history)
   - [Step back through a line's history](#step-back-through-a-lines-history)
   - [Revert a single hunk](#revert-a-single-hunk)
@@ -54,11 +57,16 @@ Jane Doe, 3 days ago • Fix race condition in session refresh
 - The whole file is blamed **once per document** and cached, so moving between lines never runs `git` again. Edits shift the cached result instead of discarding it, and the file is blamed again once you pause typing or save.
 - The format is fully customizable through a template. See [`gitBlameSolo.decorationTemplate`](#settings).
 - Your own commits read as **"You"** instead of your name.
+- Dates follow **your region's conventions**: *vor 3 Tagen*, *3 gün önce*, *22.09.2026, 14:39*. By default they follow your operating system's region settings; set [`gitBlameSolo.dateLocale`](#settings) to `vscode` for VS Code's display language, or to a tag such as `en-GB`. The `iso` [date style](#settings) shows *2026-09-22 14:39* everywhere.
 - Prefer the status bar? Turn on [`gitBlameSolo.statusBar.enabled`](#settings), and optionally turn off `gitBlameSolo.enabled`.
 - Turn on [`gitBlameSolo.highlightCommitLines`](#settings) to **highlight every other line of the file from the same commit** as the current line, with marks in the scroll bar, so you see the whole change at a glance. The colors are the `gitBlameSolo.commitLinesBackground` and `gitBlameSolo.commitLinesOverviewRuler` theme colors.
 - Commits listed in a **`.git-blame-ignore-revs`** file at the repository root, such as bulk reformatting, are skipped automatically, as GitHub does.
 
 ![Inline blame annotation at the end of the current line](docs/images/inline-blame.png)
+
+With `gitBlameSolo.highlightCommitLines` on, moving between lines shows which other lines each commit changed:
+
+![Clicking through lines from different commits; each time, the other lines of the same commit are highlighted and marked in the scroll bar](docs/images/commit-lines.gif)
 
 ### File blame
 
@@ -132,8 +140,6 @@ By default the popup only opens over the annotation, so hovering your code for o
 
 - **Pick which history to show:** the current branch, all branches (including remote branches and tags), or any single local or remote branch.
 - **Search** commit messages and **filter by author** (name or email). Both match the text as typed, ignoring case. Click an author in the list to show only their commits.
-- **Previous versions of a file:** in a file's history, the **Open** button on a commit opens the file as it was then (read-only, with blame and the hover), and **Compare** opens it in the diff editor against your working copy, even if the file has been renamed since. **Git Blame Solo: Open File at Revision…** and **Compare with Revision…** do the same from a list of the file's commits; they are in the editor title bar's **…** menu and the right-click menus of files and editor tabs.
-- **Author history:** **Git Blame Solo: Show Author History**, or the author in the blame hover, opens the log of every branch filtered to that author's commits.
 - **File history:** **Git Blame Solo: Show File History** (the history icon in the editor title bar, or the right-click menu of a file in the Explorer, an editor tab, or the Source Control view) shows only the commits that changed that file, following renames. Clear the file chip in the toolbar to see every commit again. A commit opened from a file's history marks that file in the commit details panel.
 - **Click a commit** (or press <kbd>Enter</kbd> on it) to open the commit details panel with its diffs. The button next to the hash copies it. Use the arrow keys to move between commits.
 - Commits load 200 at a time; **Load more** fetches the next page.
@@ -145,6 +151,34 @@ The graph is hidden while a search, author, or file filter is on, because the fi
 Opening a commit from a file's history takes you straight to that file in the commit details panel, with the commit's other files folded:
 
 ![File history of one file; clicking a commit opens its details with that file marked and the other files folded, then Expand all and Collapse all](docs/images/file-history.gif)
+
+### Author history
+
+**Git Blame Solo: Show Author History**, or a click on the author in the blame hover, opens the git log of every branch filtered to that author's commits. In the git log, clicking an author's name does the same. The filter uses the author's email, so every spelling of their name is included.
+
+![Hovering the inline blame, clicking the author's name, and getting the git log filtered to their commits](docs/images/author-history.gif)
+
+### Previous versions of a file
+
+In a file's history, hover a commit for two more buttons:
+
+- **Open** opens the file as it was in that commit, read-only, with blame and the hover working there too.
+- **Compare** opens that version in the diff editor against your working copy.
+
+Both follow renames, so a commit from before the file was renamed opens under its old name. **Git Blame Solo: Open File at Revision…** and **Compare with Revision…** do the same from a list of the file's commits; they are in the editor title bar's **…** menu and the right-click menus of files in the Explorer and editor tabs.
+
+![File history: Open shows the file as it was in a commit, and Compare diffs another commit's version against the working copy](docs/images/file-revisions.gif)
+
+### Compare branches, tags, and commits
+
+**Git Blame Solo: Compare Branches, Tags, or Commits…** (also the compare button in the Source Control view's title bar) compares two branches, tags, or commits, or one of them with your working copy:
+
+- Pick each side from your branches, remote branches, and tags, or type a commit hash or an expression such as `HEAD~3`.
+- Every file that differs opens in one multi-diff editor, with renames detected.
+- In the git log, **Compare…** on a commit starts the comparison from that commit.
+- **Compare File Between Revisions…** diffs one file between two of the commits that changed it.
+
+![Comparing the v0.2.0 tag with the working copy: every changed file opens in one multi-diff editor](docs/images/compare.gif)
 
 ### Line history
 
@@ -185,6 +219,8 @@ Open the Command Palette (<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P
 | `Git Blame Solo: Show File History` | Opens the git log filtered to the commits that changed the active file. |
 | `Git Blame Solo: Open File at Revision…` | Lists the commits that changed the active file; opens the file as it was in the one you pick. |
 | `Git Blame Solo: Compare with Revision…` | Lists the commits that changed the active file; compares its version in the one you pick with your working copy. |
+| `Git Blame Solo: Compare Branches, Tags, or Commits…` | Compares two branches, tags, or commits, or one with your working copy, in a multi-diff editor. |
+| `Git Blame Solo: Compare File Between Revisions…` | Diffs the active file between two of the commits that changed it. |
 | `Git Blame Solo: Show Author History` | Opens the git log of every branch, filtered to the commits by the author of the current line. |
 | `Git Blame Solo: Show Line History` | Lists every commit that changed the current line. Picking one opens its change in the diff editor. |
 | `Git Blame Solo: Blame Previous Revision` | Compares the file as it was before the commit that last changed the current line with its current version, at that line. |
@@ -214,12 +250,15 @@ It is published to the Visual Studio Marketplace and to Open VSX.
 
 ## Settings
 
-Every setting below can also be changed from the Command Palette with **Git Blame Solo: Change Setting…**.
+Every setting below can also be changed from the Command Palette with **Git Blame Solo: Change Setting…**. It lists each setting with its current value; pick one to toggle it, choose from its values, or type a new one. The change applies right away:
+
+![Git Blame Solo: Change Setting… lists every setting with its current value; switching Date Style from relative to absolute updates the inline annotation at once](docs/images/change-setting.gif)
 
 | Setting | Default | Description |
 | --- | --- | --- |
 | `gitBlameSolo.enabled` | `true` | Show the inline blame annotation for the current line. |
-| `gitBlameSolo.dateStyle` | `"relative"` | `"relative"` (e.g. *3 days ago*) or `"absolute"` date formatting in the annotation and hover. |
+| `gitBlameSolo.dateStyle` | `"relative"` | `"relative"` (e.g. *3 days ago*), `"absolute"` (the date locale's format, e.g. *22.09.2026, 14:39* in German), or `"iso"` (*2026-09-22 14:39* everywhere). Hovers and tooltips always show the exact date. |
+| `gitBlameSolo.dateLocale` | `"system"` | Whose date conventions to follow: `"system"` for your operating system's region settings, `"vscode"` for VS Code's display language, or a tag such as `en-GB`, `de-DE`, or `tr-TR`. |
 | `gitBlameSolo.decorationTemplate` | `"${author}, ${date} • ${message}"` | Template for the inline annotation. Placeholders: `${author}` `${date}` `${message}` `${hash}`. |
 | `gitBlameSolo.decorationColor` | `""` | Theme color id (e.g. `editorLineNumber.foreground`) or hex color (e.g. `#888888`). Empty uses `editorCodeLens.foreground`. |
 | `gitBlameSolo.debounceMs` | `150` | Milliseconds to wait after the cursor stops moving before recomputing blame. |

@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { compareSides } from '../../src/commands/compare';
 import { removeRepo } from '../fixtures/tempRepo';
 
 /** Waits for the tab labels to settle, as a panel's new title reaches the tabs asynchronously. */
@@ -88,7 +89,20 @@ describe('history view', () => {
     const input = diffs[0].input as vscode.TabInputTextDiff;
     assert.strictEqual(input.original.scheme, 'gitBlameSoloShow');
     assert.strictEqual(input.modified.scheme, 'file');
+    // The same path on both sides, so VS Code doesn't present the pair as a rename.
+    assert.strictEqual(input.original.path, input.modified.path);
     assert.strictEqual(diffs[0].label, `notes.txt (${commitSha.slice(0, 7)} ↔ Working Copy)`);
+  });
+
+  it('opens every changed file between two commits in one editor', async () => {
+    const first = sha();
+    execFileSync('git', ['commit', '-qam', 'Add two'], { cwd: repoRoot });
+    const second = sha();
+    await compareSides(repoRoot, { label: first, sha: first }, { label: 'main', sha: second });
+    const title = `${first.slice(0, 7)} ↔ main`;
+    const labels = vscode.window.tabGroups.all.flatMap((group) => group.tabs).map((tab) => tab.label);
+    // VS Code adds the file count to the multi-diff editor's title.
+    assert.ok(labels.includes(`${title} (1 file)`), labels.join(', '));
   });
 
   it("reuses the repository's panel for its git log", async () => {

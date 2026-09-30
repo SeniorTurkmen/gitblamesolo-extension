@@ -6,6 +6,7 @@ import { CommitDiffCache } from './cache/commitDiffCache';
 import { LineDiffCache } from './cache/lineDiffCache';
 import { changeSetting } from './commands/changeSetting';
 import { showAuthorHistory, showFileHistory, showHistory } from './commands/history';
+import { compareFileRevisions, compareRefs } from './commands/compare';
 import { showLineHistory } from './commands/lineHistory';
 import { activeRepoFile, compareWithWorkingFile, openFileAtRevision, pickRevision } from './commands/revision';
 import { getConfig, onConfigChanged } from './config';
@@ -22,6 +23,8 @@ import { RepositoryWatcher } from './git/repositoryWatcher';
 import { buildGitShowUri, GIT_SHOW_SCHEME, GitShowContentProvider } from './git/gitShowContentProvider';
 import { BlameHoverProvider } from './hover/blameHoverProvider';
 import { BlameInfo } from './types';
+import { configureDates, resolveDateLocale } from './util/dateFormat';
+import { detectSystemLocale } from './util/systemLocale';
 import { CommitDetailsPanel } from './webview/commitDetailsPanel';
 
 /** How long typing must pause before an edited document is blamed again with its unsaved text. */
@@ -39,7 +42,22 @@ async function warnIfGitMissing(): Promise<void> {
   }
 }
 
+/** The operating system's locale, once it's known; until then, the extension host's default. */
+let systemLocale = Intl.DateTimeFormat().resolvedOptions().locale;
+
+/** Applies the date settings, which every date formatted from then on uses. */
+function applyDateSettings(): void {
+  const { dateLocale, dateStyle } = getConfig();
+  configureDates(resolveDateLocale(dateLocale, vscode.env.language, systemLocale), dateStyle === 'iso');
+}
+
 export function activate(context: vscode.ExtensionContext): void {
+  applyDateSettings();
+  void detectSystemLocale().then((locale) => {
+    systemLocale = locale;
+    applyDateSettings();
+    redraw();
+  });
   void warnIfGitMissing();
 
   const blameCache = new BlameCache();
@@ -131,6 +149,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   context.subscriptions.push(
     onConfigChanged((e) => {
+      applyDateSettings();
       const blameSettings = ['ignoreWhitespace', 'detectMovedLines', 'ignoreRevsFile'];
       if (blameSettings.some((key) => e.affectsConfiguration(`gitBlameSolo.${key}`))) {
         blameCache.clear();
@@ -270,6 +289,8 @@ export function activate(context: vscode.ExtensionContext): void {
         }
       },
     ),
+    vscode.commands.registerCommand('gitBlameSolo.compareRefs', compareRefs),
+    vscode.commands.registerCommand('gitBlameSolo.compareFileRevisions', compareFileRevisions),
     vscode.commands.registerCommand(
       'gitBlameSolo.compareWithRevision',
       async (repoRootArg?: unknown, shaArg?: string, revisionPathArg?: string, workingPathArg?: string) => {

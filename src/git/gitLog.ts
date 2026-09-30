@@ -6,7 +6,7 @@ const FIELD_SEP = '\x1f';
 const RECORD_SEP = '\x1e';
 const FORMAT = ['%H', '%an', '%ae', '%at', '%ct', '%s', '%b'].join(FIELD_SEP) + RECORD_SEP;
 
-function parseNameStatus(text: string): CommitFileChange[] {
+export function parseNameStatus(text: string): CommitFileChange[] {
   const files: CommitFileChange[] = [];
   for (const line of text.split('\n')) {
     if (!line.trim()) {

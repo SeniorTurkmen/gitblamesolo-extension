@@ -2,7 +2,7 @@
   "name": "gitblamesolo",
   "displayName": "Git Blame Solo",
   "description": "Shows who changed the current line, when, and with which commit, inline and on hover, plus a git log with a branch graph and file history.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "SeniorTurkmen",
   "license": "MIT",
   "private": true,
@@ -46,10 +46,21 @@
           "type": "string",
           "enum": [
             "relative",
-            "absolute"
+            "absolute",
+            "iso"
+          ],
+          "enumDescriptions": [
+            "How long ago, such as \"3 days ago\", in the date locale.",
+            "The date and time in the date locale's format, such as \"Sep 22, 2026, 2:39 PM\" or \"22 Eyl 2026 14:39\".",
+            "Year first, the same in every locale, such as \"2026-09-22 14:39\"."
           ],
           "default": "relative",
-          "description": "How dates are formatted in the inline annotation and hover."
+          "description": "How dates are formatted in the inline annotation, status bar, and git log. Hovers and tooltips always show the exact date: in ISO form with iso, otherwise in the date locale's format."
+        },
+        "gitBlameSolo.dateLocale": {
+          "type": "string",
+          "default": "system",
+          "description": "Language and country whose date conventions to follow: system for your operating system's region settings, vscode for VS Code's display language, or a tag such as en-GB, de-DE, or tr-TR. An unknown tag falls back to VS Code's language."
         },
         "gitBlameSolo.decorationTemplate": {
           "type": "string",
@@ -223,6 +234,15 @@
         "title": "Git Blame Solo: Compare with Revision…"
       },
       {
+        "command": "gitBlameSolo.compareFileRevisions",
+        "title": "Git Blame Solo: Compare File Between Revisions…"
+      },
+      {
+        "command": "gitBlameSolo.compareRefs",
+        "title": "Git Blame Solo: Compare Branches, Tags, or Commits…",
+        "icon": "$(git-compare)"
+      },
+      {
         "command": "gitBlameSolo.showLineHistory",
         "title": "Git Blame Solo: Show Line History"
       },
@@ -280,6 +300,11 @@
           "command": "gitBlameSolo.compareWithRevision",
           "when": "(resourceScheme == file || resourceScheme == gitBlameSoloShow)",
           "group": "9_gitBlameSolo@2"
+        },
+        {
+          "command": "gitBlameSolo.compareFileRevisions",
+          "when": "(resourceScheme == file || resourceScheme == gitBlameSoloShow)",
+          "group": "9_gitBlameSolo@3"
         }
       ],
       "editor/title/context": [
@@ -295,6 +320,11 @@
         },
         {
           "command": "gitBlameSolo.compareWithRevision",
+          "when": "resourceScheme == file",
+          "group": "9_gitBlameSolo"
+        },
+        {
+          "command": "gitBlameSolo.compareFileRevisions",
           "when": "resourceScheme == file",
           "group": "9_gitBlameSolo"
         }
@@ -314,11 +344,21 @@
           "command": "gitBlameSolo.compareWithRevision",
           "when": "resourceScheme == file && !explorerResourceIsFolder",
           "group": "9_gitBlameSolo"
+        },
+        {
+          "command": "gitBlameSolo.compareFileRevisions",
+          "when": "resourceScheme == file && !explorerResourceIsFolder",
+          "group": "9_gitBlameSolo"
         }
       ],
       "scm/title": [
         {
           "command": "gitBlameSolo.showHistory",
+          "when": "scmProvider == git",
+          "group": "navigation"
+        },
+        {
+          "command": "gitBlameSolo.compareRefs",
           "when": "scmProvider == git",
           "group": "navigation"
         }

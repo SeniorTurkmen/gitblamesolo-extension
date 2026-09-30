@@ -84,7 +84,7 @@ export function renderHistoryRows(
         (options.fileActions
           ? `<button class="act open-file" title="Open the file as it was in this commit">Open</button>` +
             `<button class="act compare" title="Compare the file in this commit with your working copy">Compare</button>`
-          : '') +
+          : `<button class="act compare-from" title="Compare this commit with a branch, tag, commit, or your working copy">Compare…</button>`) +
         `<button class="act copy" title="Copy commit hash" aria-label="Copy commit hash">Copy</button>` +
         `</span>` +
         `</div>`
@@ -295,6 +295,8 @@ export function renderHistoryShell(view: HistoryShellView, nonce: string): strin
       vscode.postMessage({ type: 'openFileAtCommit', sha: row.dataset.sha, path: row.dataset.path });
     } else if (e.target.closest('.compare')) {
       vscode.postMessage({ type: 'compareWithWorkingFile', sha: row.dataset.sha, path: row.dataset.path });
+    } else if (e.target.closest('.compare-from')) {
+      vscode.postMessage({ type: 'compareFrom', sha: row.dataset.sha });
     } else if (e.target.closest('.copy')) {
       vscode.postMessage({ type: 'copySha', sha: row.dataset.sha });
     } else {
