@@ -8,11 +8,13 @@ import { BLAMEABLE_SCHEMES, blameTarget, resolveBlameTarget } from '../git/blame
 import { getLineDiffHunk } from '../git/gitDiff';
 import { getCommitDetails } from '../git/gitLog';
 import { getCommitLink, pullRequestLabel } from '../git/gitRemote';
+import { getFileAtRevision } from '../git/gitShowContentProvider';
+import { UnpushedCache } from '../git/gitUnpushed';
 import { formatAuthor } from '../util/authorFormat';
 import { formatDate } from '../util/dateFormat';
 import { countDiffStats, parseDiffHunkLines } from '../util/diffRender';
 import { emojify } from '../util/emoji';
-import { UnpushedCache } from '../git/gitUnpushed';
+import { diffHunkForLine } from '../util/lineDiff';
 
 function buildShowDetailsCommandUri(
   sha: string,
@@ -68,6 +70,25 @@ function authorLink(name: string, email: string, showEmail: boolean, repoRoot: s
 }
 
 /** The short SHA with a button that copies the full one. */
+/** The "What changed" section: a hunk with its added and removed line counts, then `link`. */
+function appendDiffBlock(md: vscode.MarkdownString, diffHunk: string | undefined, link: string): void {
+  const lines = diffHunk ? parseDiffHunkLines(diffHunk) : [];
+  if (!diffHunk || lines.length === 0) {
+    return;
+  }
+  const { added, removed } = countDiffStats(lines);
+  const stats = [
+    added > 0 ? `$(diff-added) ${added}` : undefined,
+    removed > 0 ? `$(diff-removed) ${removed}` : undefined,
+  ]
+    .filter(Boolean)
+    .join(' &nbsp; ');
+  md.appendMarkdown('\n\n---\n\n');
+  md.appendMarkdown(`$(diff) **What changed**${stats ? ` &nbsp; ${stats}` : ''}\n`);
+  md.appendCodeblock(diffHunk, 'diff');
+  md.appendMarkdown(`\n${link}`);
+}
+
 function appendSha(md: vscode.MarkdownString, sha: string, repoRoot: string, unpushed: boolean): void {
   const copyUri = `command:gitBlameSolo.copyCommitHash?${encodeURIComponent(JSON.stringify([sha]))}`;
   const copyMessageUri = `command:gitBlameSolo.copyCommitMessage?${encodeURIComponent(JSON.stringify([sha, repoRoot]))}`;
@@ -93,6 +114,7 @@ function newMarkdown(): vscode.MarkdownString {
       'gitBlameSolo.openDiff',
       'gitBlameSolo.copyCommitHash',
       'gitBlameSolo.copyCommitMessage',
+      'gitBlameSolo.compareWithRevision',
       'gitBlameSolo.blamePreviousRevision',
       'gitBlameSolo.showLineHistory',
       'gitBlameSolo.showAuthorHistory',
@@ -187,6 +209,16 @@ export class BlameHoverProvider implements vscode.HoverProvider {
         const mtimeSeconds = await this.getMtimeSeconds(document.uri.fsPath);
         md.appendMarkdown(`$(save) File saved ${formatDate(mtimeSeconds, 'absolute')}`);
       }
+      // Compared with the last commit, unsaved edits included, as blame sees them.
+      const committed = await getFileAtRevision('HEAD', repoRoot, target.relativePath);
+      if (token.isCancellationRequested) {
+        return undefined;
+      }
+      const diffHunk = diffHunkForLine(committed, document.getText(), line);
+      const compareUri = `command:gitBlameSolo.compareWithRevision?${encodeURIComponent(
+        JSON.stringify([repoRoot, 'HEAD', target.relativePath, target.relativePath]),
+      )}`;
+      appendDiffBlock(md, diffHunk, `[$(link-external) Open in Diff Editor](${compareUri} "Compare the file with its last commit")`);
       return new vscode.Hover(md, range);
     }
 
@@ -293,25 +325,8 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     if (!diffHunk) {
       return;
     }
-    const lines = parseDiffHunkLines(diffHunk);
-    if (lines.length === 0) {
-      return;
-    }
-
-    const { added, removed } = countDiffStats(lines);
-    const stats = [
-      added > 0 ? `$(diff-added) ${added}` : undefined,
-      removed > 0 ? `$(diff-removed) ${removed}` : undefined,
-    ]
-      .filter(Boolean)
-      .join(' &nbsp; ');
-
     const openDiffUri = buildOpenDiffCommandUri(sha, repoRoot, relativePath, oldRelativePath, line);
-
-    md.appendMarkdown('\n\n---\n\n');
-    md.appendMarkdown(`$(diff) **What changed**${stats ? ` &nbsp; ${stats}` : ''}\n`);
-    md.appendCodeblock(diffHunk, 'diff');
-    md.appendMarkdown(`\n[$(link-external) Open in Diff Editor](${openDiffUri})`);
+    appendDiffBlock(md, diffHunk, `[$(link-external) Open in Diff Editor](${openDiffUri})`);
   }
 
   private async getMtimeSeconds(fsPath: string): Promise<number> {

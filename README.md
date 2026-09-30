@@ -94,6 +94,8 @@ Blame is computed against the **live editor buffer**: the extension pipes the bu
 
 While you type, edited lines read as uncommitted right away without running `git`. About a second after you stop typing, the buffer is blamed again, so a line you changed back to its committed text shows its commit again without saving.
 
+Hovering an uncommitted line shows **what changed** since the last commit: the changed block the line belongs to, unsaved edits included, with **Open in Diff Editor** to compare the whole file with its last commit.
+
 ### Rich hover: the commit and what it changed
 
 Hover the inline annotation at the end of the current line to open a popup containing:

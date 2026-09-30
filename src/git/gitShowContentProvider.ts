@@ -39,22 +39,23 @@ export function parseGitShowUri(uri: vscode.Uri): { sha: string; repoRoot: strin
   }
 }
 
+/** A file's content at a revision; empty when the file didn't exist there. */
+export async function getFileAtRevision(sha: string, repoRoot: string, relativePath: string): Promise<string> {
+  try {
+    return await runGit(['show', `${sha}:${relativePath}`], { cwd: repoRoot });
+  } catch (err) {
+    if (err instanceof GitCliError) {
+      // The file didn't exist at this revision (new file, or before the root commit) —
+      // an empty document is the correct "not present" side of the diff.
+      return '';
+    }
+    throw err;
+  }
+}
+
 export class GitShowContentProvider implements vscode.TextDocumentContentProvider {
   async provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
     const parsed = parseGitShowUri(uri);
-    if (!parsed) {
-      return '';
-    }
-    const { sha, repoRoot, relativePath } = parsed;
-    try {
-      return await runGit(['show', `${sha}:${relativePath}`], { cwd: repoRoot });
-    } catch (err) {
-      if (err instanceof GitCliError) {
-        // The file didn't exist at this revision (new file, or before the root commit) —
-        // an empty document is the correct "not present" side of the diff.
-        return '';
-      }
-      throw err;
-    }
+    return parsed ? getFileAtRevision(parsed.sha, parsed.repoRoot, parsed.relativePath) : '';
   }
 }

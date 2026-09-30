@@ -4,6 +4,7 @@
 
 - Added **gitmoji**: with `gitBlameSolo.renderEmoji` on, shortcodes such as `:sparkles:` and `:bug:` in commit messages show as ✨ and 🐛 in the annotation, hover, git log, and commit details. Off by default.
 - Added **Git Blame Solo: Copy Commit Message**, which copies the full message of the current line's commit. The blame hover has a **Copy message** button next to the hash.
+- The hover of an uncommitted line shows **what changed** since the last commit, unsaved edits included: the changed block the line belongs to, as for committed lines, with **Open in Diff Editor** to compare the file with its last commit.
 - Added an **unpushed commit** marker: with `gitBlameSolo.showUnpushed` on, commits that no remote branch contains yet are marked **Not pushed yet** in the hover and get a **not pushed** badge in the git log. Off by default.
 
 ## 0.3.0

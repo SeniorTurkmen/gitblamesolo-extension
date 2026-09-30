@@ -43,6 +43,7 @@ describe('file blame', () => {
 
   after(async () => {
     await settings().update('fileBlame.enabled', undefined, vscode.ConfigurationTarget.Global);
+    await settings().update('hover.trigger', undefined, vscode.ConfigurationTarget.Global);
     await vscode.commands.executeCommand('workbench.action.closeAllEditors');
     try {
       removeRepo(repoRoot);
@@ -71,5 +72,18 @@ describe('file blame', () => {
     await vscode.commands.executeCommand('gitBlameSolo.toggleFileBlame');
     assert.strictEqual(settings().get('fileBlame.enabled'), false);
     assert.ok(!(await hoverText(1, 0)).includes('Add the file blame fixture'));
+  });
+
+  it('shows what changed on an uncommitted line, unsaved edits included', async () => {
+    await settings().update('hover.trigger', 'line', vscode.ConfigurationTarget.Global);
+    const editor = vscode.window.activeTextEditor!;
+    await editor.edit((edit) => edit.replace(new vscode.Range(1, 0, 1, 'second line'.length), 'changed line'));
+    try {
+      const text = await hoverText(1, 3);
+      assert.ok(text.includes('What changed'), text);
+      assert.ok(text.includes('-second line\n+changed line'), text);
+    } finally {
+      await vscode.commands.executeCommand('workbench.action.files.revert');
+    }
   });
 });
