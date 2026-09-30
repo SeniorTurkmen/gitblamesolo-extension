@@ -23,6 +23,7 @@ import { RepositoryWatcher } from './git/repositoryWatcher';
 import { buildGitShowUri, GIT_SHOW_SCHEME, GitShowContentProvider } from './git/gitShowContentProvider';
 import { BlameHoverProvider } from './hover/blameHoverProvider';
 import { BlameInfo } from './types';
+import { configureDates, resolveDateLocale } from './util/dateFormat';
 import { CommitDetailsPanel } from './webview/commitDetailsPanel';
 
 /** How long typing must pause before an edited document is blamed again with its unsaved text. */
@@ -40,7 +41,15 @@ async function warnIfGitMissing(): Promise<void> {
   }
 }
 
+/** Applies the date settings, which every date formatted from then on uses. */
+function applyDateSettings(): void {
+  const { dateLocale, dateStyle } = getConfig();
+  const systemLocale = Intl.DateTimeFormat().resolvedOptions().locale;
+  configureDates(resolveDateLocale(dateLocale, vscode.env.language, systemLocale), dateStyle === 'iso');
+}
+
 export function activate(context: vscode.ExtensionContext): void {
+  applyDateSettings();
   void warnIfGitMissing();
 
   const blameCache = new BlameCache();
@@ -132,6 +141,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   context.subscriptions.push(
     onConfigChanged((e) => {
+      applyDateSettings();
       const blameSettings = ['ignoreWhitespace', 'detectMovedLines', 'ignoreRevsFile'];
       if (blameSettings.some((key) => e.affectsConfiguration(`gitBlameSolo.${key}`))) {
         blameCache.clear();

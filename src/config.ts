@@ -8,6 +8,8 @@ export type HoverTrigger = 'annotation' | 'line';
 export interface GitBlameSoloConfig {
   enabled: boolean;
   dateStyle: DateStyle;
+  /** The `dateLocale` setting as written: empty, `system`, or a BCP 47 tag. */
+  dateLocale: string;
   decorationTemplate: string;
   decorationColor: string | undefined;
   debounceMs: number;
@@ -34,6 +36,7 @@ export function getConfig(): GitBlameSoloConfig {
   return {
     enabled: cfg.get<boolean>('enabled', true),
     dateStyle: cfg.get<DateStyle>('dateStyle', 'relative'),
+    dateLocale: cfg.get<string>('dateLocale', ''),
     decorationTemplate: cfg.get<string>('decorationTemplate', '${author}, ${date} • ${message}'),
     decorationColor: decorationColor.length > 0 ? decorationColor : undefined,
     debounceMs: cfg.get<number>('debounceMs', 150),

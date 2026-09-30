@@ -46,10 +46,21 @@
           "type": "string",
           "enum": [
             "relative",
-            "absolute"
+            "absolute",
+            "iso"
+          ],
+          "enumDescriptions": [
+            "How long ago, such as \"3 days ago\", in the date locale.",
+            "The date and time in the date locale's format, such as \"Sep 22, 2026, 2:39 PM\" or \"22 Eyl 2026 14:39\".",
+            "Year first, the same in every locale, such as \"2026-09-22 14:39\"."
           ],
           "default": "relative",
-          "description": "How dates are formatted in the inline annotation and hover."
+          "description": "How dates are formatted in the inline annotation, status bar, and git log. Hovers and tooltips always show the exact date: in ISO form with iso, otherwise in the date locale's format."
+        },
+        "gitBlameSolo.dateLocale": {
+          "type": "string",
+          "default": "",
+          "description": "Language and country whose date conventions to follow, as a tag such as en-GB, de-DE, or tr-TR. Empty uses VS Code's display language; system uses your operating system's. An unknown tag falls back to VS Code's language."
         },
         "gitBlameSolo.decorationTemplate": {
           "type": "string",

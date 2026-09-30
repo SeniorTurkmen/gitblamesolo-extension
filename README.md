@@ -57,6 +57,7 @@ Jane Doe, 3 days ago • Fix race condition in session refresh
 - The whole file is blamed **once per document** and cached, so moving between lines never runs `git` again. Edits shift the cached result instead of discarding it, and the file is blamed again once you pause typing or save.
 - The format is fully customizable through a template. See [`gitBlameSolo.decorationTemplate`](#settings).
 - Your own commits read as **"You"** instead of your name.
+- Dates follow **your language's conventions**: *vor 3 Tagen*, *3 gün önce*, *22.09.2026, 14:39*. By default they follow VS Code's display language; set [`gitBlameSolo.dateLocale`](#settings) to a tag such as `en-GB`, or to `system` for your operating system's. The `iso` [date style](#settings) shows *2026-09-22 14:39* everywhere.
 - Prefer the status bar? Turn on [`gitBlameSolo.statusBar.enabled`](#settings), and optionally turn off `gitBlameSolo.enabled`.
 - Turn on [`gitBlameSolo.highlightCommitLines`](#settings) to **highlight every other line of the file from the same commit** as the current line, with marks in the scroll bar, so you see the whole change at a glance. The colors are the `gitBlameSolo.commitLinesBackground` and `gitBlameSolo.commitLinesOverviewRuler` theme colors.
 - Commits listed in a **`.git-blame-ignore-revs`** file at the repository root, such as bulk reformatting, are skipped automatically, as GitHub does.
@@ -256,7 +257,8 @@ Every setting below can also be changed from the Command Palette with **Git Blam
 | Setting | Default | Description |
 | --- | --- | --- |
 | `gitBlameSolo.enabled` | `true` | Show the inline blame annotation for the current line. |
-| `gitBlameSolo.dateStyle` | `"relative"` | `"relative"` (e.g. *3 days ago*) or `"absolute"` date formatting in the annotation and hover. |
+| `gitBlameSolo.dateStyle` | `"relative"` | `"relative"` (e.g. *3 days ago*), `"absolute"` (the date locale's format, e.g. *22.09.2026, 14:39* in German), or `"iso"` (*2026-09-22 14:39* everywhere). Hovers and tooltips always show the exact date. |
+| `gitBlameSolo.dateLocale` | `""` | Whose date conventions to follow, as a tag such as `en-GB`, `de-DE`, or `tr-TR`. Empty uses VS Code's display language; `"system"` uses your operating system's. |
 | `gitBlameSolo.decorationTemplate` | `"${author}, ${date} • ${message}"` | Template for the inline annotation. Placeholders: `${author}` `${date}` `${message}` `${hash}`. |
 | `gitBlameSolo.decorationColor` | `""` | Theme color id (e.g. `editorLineNumber.foreground`) or hex color (e.g. `#888888`). Empty uses `editorCodeLens.foreground`. |
 | `gitBlameSolo.debounceMs` | `150` | Milliseconds to wait after the cursor stops moving before recomputing blame. |
