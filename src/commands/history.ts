@@ -8,7 +8,7 @@ import { HistoryPanel } from '../webview/historyPanel';
 
 function settings() {
   const config = getConfig();
-  return { dateStyle: config.dateStyle, currentUserLabel: config.currentUserLabel };
+  return { dateStyle: config.dateStyle, currentUserLabel: config.currentUserLabel, showUnpushed: config.showUnpushed };
 }
 
 /** A URI passed by a menu: the Source Control view passes a repository or a changed file, other menus a URI. */

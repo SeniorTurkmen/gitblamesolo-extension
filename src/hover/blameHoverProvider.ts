@@ -11,6 +11,8 @@ import { getCommitLink, pullRequestLabel } from '../git/gitRemote';
 import { formatAuthor } from '../util/authorFormat';
 import { formatDate } from '../util/dateFormat';
 import { countDiffStats, parseDiffHunkLines } from '../util/diffRender';
+import { emojify } from '../util/emoji';
+import { UnpushedCache } from '../git/gitUnpushed';
 
 function buildShowDetailsCommandUri(
   sha: string,
@@ -66,9 +68,15 @@ function authorLink(name: string, email: string, showEmail: boolean, repoRoot: s
 }
 
 /** The short SHA with a button that copies the full one. */
-function appendSha(md: vscode.MarkdownString, sha: string): void {
+function appendSha(md: vscode.MarkdownString, sha: string, repoRoot: string, unpushed: boolean): void {
   const copyUri = `command:gitBlameSolo.copyCommitHash?${encodeURIComponent(JSON.stringify([sha]))}`;
-  md.appendMarkdown(`\`${sha.slice(0, 7)}\` [$(copy)](${copyUri} "Copy commit SHA")`);
+  const copyMessageUri = `command:gitBlameSolo.copyCommitMessage?${encodeURIComponent(JSON.stringify([sha, repoRoot]))}`;
+  md.appendMarkdown(
+    `\`${sha.slice(0, 7)}\` [$(copy)](${copyUri} "Copy commit SHA") &nbsp; [$(note) Copy message](${copyMessageUri} "Copy the full commit message")`,
+  );
+  if (unpushed) {
+    md.appendMarkdown(' &nbsp;&nbsp; $(cloud-upload) Not pushed yet');
+  }
 }
 
 /** Keeps "<email>" literal instead of letting Markdown turn it into an autolink. */
@@ -84,6 +92,7 @@ function newMarkdown(): vscode.MarkdownString {
       'gitBlameSolo.showCommitDetails',
       'gitBlameSolo.openDiff',
       'gitBlameSolo.copyCommitHash',
+      'gitBlameSolo.copyCommitMessage',
       'gitBlameSolo.blamePreviousRevision',
       'gitBlameSolo.showLineHistory',
       'gitBlameSolo.showAuthorHistory',
@@ -96,6 +105,7 @@ export interface BlameHoverProviderDeps {
   blameCache: BlameCache;
   commitCache: CommitCache;
   lineDiffCache: LineDiffCache;
+  unpushedCache: UnpushedCache;
   getConfig: () => GitBlameSoloConfig;
 }
 
@@ -196,6 +206,7 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       getCommitDetails(blame.sha, repoRoot),
     );
     const diffHunk = await diffHunkPromise;
+    const unpushed = config.showUnpushed && (await this.deps.unpushedCache.isUnpushed(repoRoot, blame.sha));
     const remoteLink = await getCommitLink(
       repoRoot,
       blame.sha,
@@ -208,17 +219,17 @@ export class BlameHoverProvider implements vscode.HoverProvider {
 
     if (!commit) {
       const md = newMarkdown();
-      md.appendMarkdown(`$(git-commit) **${blame.summary}**\n\n`);
+      md.appendMarkdown(`$(git-commit) **${emojify(blame.summary)}**\n\n`);
       md.appendMarkdown(
         `$(account) ${authorLink(blame.authorName, blame.authorEmail, config.showAuthorEmail, repoRoot)} &nbsp;&nbsp; $(clock) ${formatDate(blame.authorTimestamp, 'absolute')}\n\n`,
       );
-      appendSha(md, blame.sha);
+      appendSha(md, blame.sha, repoRoot, unpushed);
       this.appendDiff(md, diffHunk, blame.sha, repoRoot, blame.filename, blame.previous?.filename, blame.originalLine);
       return new vscode.Hover(md, range);
     }
 
     const md = newMarkdown();
-    md.appendMarkdown(`$(git-commit) **${commit.summary}**\n\n`);
+    md.appendMarkdown(`$(git-commit) **${emojify(commit.summary)}**\n\n`);
     md.appendMarkdown(
       `$(account) ${authorLink(commit.authorName, commit.authorEmail, config.showAuthorEmail, repoRoot)} &nbsp;&nbsp; $(clock) ${formatDate(commit.authorTimestamp, 'absolute')}\n\n`,
     );
@@ -227,9 +238,9 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       md.appendMarkdown(`$(organization) Co-authored by ${escapeAngleBrackets(names)}\n\n`);
     }
     if (commit.body) {
-      md.appendMarkdown(`${commit.body}\n\n`);
+      md.appendMarkdown(`${emojify(commit.body)}\n\n`);
     }
-    appendSha(md, commit.sha);
+    appendSha(md, commit.sha, repoRoot, unpushed);
     this.appendDiff(md, diffHunk, commit.sha, repoRoot, blame.filename, blame.previous?.filename, blame.originalLine);
 
     md.appendMarkdown('\n\n---\n\n');

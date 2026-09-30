@@ -6,6 +6,7 @@ import { resolveBlameTarget } from '../git/blameTarget';
 import { getHistoryPage, HistoryEntry } from '../git/gitHistory';
 import { buildGitShowUri } from '../git/gitShowContentProvider';
 import { formatDate } from '../util/dateFormat';
+import { emojify } from '../util/emoji';
 
 /** A file in a repository, by its path relative to the root. */
 export interface RepoFile {
@@ -83,7 +84,7 @@ export async function pickRevision(file: RepoFile, placeHolder: string): Promise
         return;
       }
       picker.items = page.entries.map((entry) => ({
-        label: entry.summary,
+        label: emojify(entry.summary),
         description: `${entry.sha.slice(0, 7)} · ${entry.authorName} · ${formatDate(entry.authorTimestamp, dateStyle)}`,
         detail: entry.path && entry.path !== file.relativePath ? `as ${entry.path}` : undefined,
         entry,

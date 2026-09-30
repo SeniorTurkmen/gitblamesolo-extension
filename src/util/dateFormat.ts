@@ -1,3 +1,5 @@
+import { emojify } from './emoji';
+
 export type DateStyle = 'relative' | 'absolute' | 'iso';
 
 /** How dates read everywhere: the locale, and whether exact dates are ISO (`2026-09-22 14:39`) or the locale's. */
@@ -111,6 +113,6 @@ export function formatDecorationText(
   return template
     .replace(/\$\{author\}/g, data.author)
     .replace(/\$\{date\}/g, formatDate(data.authorTimestamp, dateStyle, locale))
-    .replace(/\$\{message\}/g, data.summary)
+    .replace(/\$\{message\}/g, emojify(data.summary))
     .replace(/\$\{hash\}/g, data.sha.slice(0, 7));
 }

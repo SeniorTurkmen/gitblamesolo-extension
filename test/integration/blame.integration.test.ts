@@ -11,7 +11,8 @@ import { getLineDiffHunk, getParentLine } from '../../src/git/gitDiff';
 import { getBranches, getHistoryPage } from '../../src/git/gitHistory';
 import { getLineHistory } from '../../src/git/gitLineHistory';
 import { repositoryGitConfigPath } from '../../src/git/gitConfigFiles';
-import { getCommitDetails } from '../../src/git/gitLog';
+import { getCommitDetails, getCommitMessage } from '../../src/git/gitLog';
+import { getUnpushedCommits } from '../../src/git/gitUnpushed';
 import { repoRelativePath } from '../../src/git/repoRelativePath';
 import { removeRepo } from '../fixtures/tempRepo';
 import { clearRemoteCaches, getCommitLink, getCurrentUserEmail } from '../../src/git/gitRemote';
@@ -598,5 +599,48 @@ describe('git history', () => {
     const addA = execFileSync('git', ['rev-parse', 'feature~1'], { cwd: repoRoot, encoding: 'utf8' }).trim();
     assert.strictEqual(await getMergeBase(repoRoot, 'feature', 'main'), addA);
     assert.deepStrictEqual(await getTags(repoRoot), ['v1']);
+  });
+});
+
+describe('unpushed commits and commit messages', () => {
+  let repoRoot: string;
+  let remote: string;
+
+  before(() => {
+    remote = fs.mkdtempSync(path.join(os.tmpdir(), 'gitblamesolo-remote-'));
+    git(remote, ['init', '--bare', '--initial-branch=main']);
+    repoRoot = initRepo('gitblamesolo-unpushed-');
+    fs.writeFileSync(path.join(repoRoot, 'a.txt'), 'one\n');
+    git(repoRoot, ['add', 'a.txt']);
+    git(repoRoot, ['commit', '-m', ':sparkles: Add a', '-m', 'With a body.']);
+  });
+
+  after(() => {
+    removeRepo(repoRoot);
+    removeRepo(remote);
+  });
+
+  function head(): string {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim();
+  }
+
+  it('reads the full commit message', async () => {
+    assert.strictEqual(await getCommitMessage(head(), repoRoot), ':sparkles: Add a\n\nWith a body.');
+    assert.strictEqual(await getCommitMessage('0'.repeat(40), repoRoot), undefined);
+  });
+
+  it('marks nothing before the repository has any remote branch', async () => {
+    assert.strictEqual(await getUnpushedCommits(repoRoot), undefined);
+  });
+
+  it('lists the commits no remote branch contains', async () => {
+    git(repoRoot, ['remote', 'add', 'origin', remote]);
+    git(repoRoot, ['push', '-q', 'origin', 'main']);
+    const pushed = head();
+    fs.writeFileSync(path.join(repoRoot, 'a.txt'), 'two\n');
+    git(repoRoot, ['commit', '-qam', 'Change a']);
+    const unpushed = await getUnpushedCommits(repoRoot);
+    assert.deepStrictEqual([...(unpushed ?? [])], [head()]);
+    assert.ok(!unpushed?.has(pushed));
   });
 });

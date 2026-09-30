@@ -16,14 +16,16 @@ import { blameTarget, resolveBlameTarget } from './git/blameTarget';
 import { GitCliError, runGit } from './git/gitCli';
 import { getCommitDiff } from './git/gitCommitDiff';
 import { getParentLine } from './git/gitDiff';
-import { getCommitDetails } from './git/gitLog';
+import { getCommitDetails, getCommitMessage } from './git/gitLog';
 import { clearRemoteCaches, getCommitLink } from './git/gitRemote';
 import { invalidateRepositoryCache } from './git/gitRepository';
 import { RepositoryWatcher } from './git/repositoryWatcher';
+import { UnpushedCache } from './git/gitUnpushed';
 import { buildGitShowUri, GIT_SHOW_SCHEME, GitShowContentProvider } from './git/gitShowContentProvider';
 import { BlameHoverProvider } from './hover/blameHoverProvider';
 import { BlameInfo } from './types';
 import { configureDates, resolveDateLocale } from './util/dateFormat';
+import { configureEmoji } from './util/emoji';
 import { detectSystemLocale } from './util/systemLocale';
 import { CommitDetailsPanel } from './webview/commitDetailsPanel';
 
@@ -45,23 +47,25 @@ async function warnIfGitMissing(): Promise<void> {
 /** The operating system's locale, once it's known; until then, the extension host's default. */
 let systemLocale = Intl.DateTimeFormat().resolvedOptions().locale;
 
-/** Applies the date settings, which every date formatted from then on uses. */
-function applyDateSettings(): void {
-  const { dateLocale, dateStyle } = getConfig();
+/** Applies the date and emoji settings, which every date and message shown from then on uses. */
+function applyDisplaySettings(): void {
+  const { dateLocale, dateStyle, renderEmoji } = getConfig();
   configureDates(resolveDateLocale(dateLocale, vscode.env.language, systemLocale), dateStyle === 'iso');
+  configureEmoji(renderEmoji);
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-  applyDateSettings();
+  applyDisplaySettings();
   void detectSystemLocale().then((locale) => {
     systemLocale = locale;
-    applyDateSettings();
+    applyDisplaySettings();
     redraw();
   });
   void warnIfGitMissing();
 
   const blameCache = new BlameCache();
   const commitCache = new CommitCache();
+  const unpushedCache = new UnpushedCache();
   const commitDiffCache = new CommitDiffCache();
   const lineDiffCache = new LineDiffCache();
   const decorator = new CurrentLineBlameDecorator({ blameCache, getConfig });
@@ -144,12 +148,12 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.languages.registerHoverProvider(
       [{ scheme: 'file' }, { scheme: GIT_SHOW_SCHEME }],
-      new BlameHoverProvider({ blameCache, commitCache, lineDiffCache, getConfig }),
+      new BlameHoverProvider({ blameCache, commitCache, lineDiffCache, unpushedCache, getConfig }),
     ),
   );
   context.subscriptions.push(
     onConfigChanged((e) => {
-      applyDateSettings();
+      applyDisplaySettings();
       const blameSettings = ['ignoreWhitespace', 'detectMovedLines', 'ignoreRevsFile'];
       if (blameSettings.some((key) => e.affectsConfiguration(`gitBlameSolo.${key}`))) {
         blameCache.clear();
@@ -162,6 +166,7 @@ export function activate(context: vscode.ExtensionContext): void {
     invalidateRepositoryCache();
     clearRemoteCaches();
     blameCache.clear();
+    unpushedCache.clear();
     redraw();
   }
 
@@ -171,6 +176,7 @@ export function activate(context: vscode.ExtensionContext): void {
         blameCache.clear();
         redraw();
       },
+      onStateChanged: () => unpushedCache.clear(),
       onRepositoriesChanged: resetCaches,
       onConfigChanged: () => {
         clearRemoteCaches();
@@ -528,6 +534,28 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       await vscode.env.clipboard.writeText(sha);
       void vscode.window.setStatusBarMessage(`$(check) Copied ${sha.slice(0, 7)} to clipboard`, 3000);
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('gitBlameSolo.copyCommitMessage', async (shaArg?: string, repoRootArg?: string) => {
+      let sha = shaArg;
+      let repoRoot = repoRootArg;
+      if (!sha || !repoRoot) {
+        const target = await blameAtCursor();
+        if (!target) {
+          return;
+        }
+        sha = target.blame.sha;
+        repoRoot = target.repoRoot;
+      }
+      const message = await getCommitMessage(sha, repoRoot);
+      if (message === undefined) {
+        void vscode.window.showErrorMessage(`Git Blame Solo: could not read the message of commit ${sha.slice(0, 7)}.`);
+        return;
+      }
+      await vscode.env.clipboard.writeText(message);
+      void vscode.window.setStatusBarMessage(`$(check) Copied the message of ${sha.slice(0, 7)} to clipboard`, 3000);
     }),
   );
 

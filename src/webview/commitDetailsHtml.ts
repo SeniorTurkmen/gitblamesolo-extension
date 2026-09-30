@@ -3,6 +3,7 @@ import { pullRequestLabel, RemoteCommitLink } from '../git/gitRemote';
 import { CommitDetails, CommitFileChange, DiffHunk, DiffLine, FileChangeStatus, FileDiff, SourceLocation } from '../types';
 import { formatDate } from '../util/dateFormat';
 import { escapeHtml } from './html';
+import { emojify } from '../util/emoji';
 
 /** Everything the commit details page shows. */
 export interface CommitDetailsView {
@@ -304,7 +305,7 @@ export function renderCommitDetailsHtml(view: CommitDetailsView, nonce: string):
 </style>
 </head>
 <body>
-<h2>${escapeHtml(commit.summary)}</h2>
+<h2>${escapeHtml(emojify(commit.summary))}</h2>
 <div class="meta">
   ${escapeHtml(commit.authorName)} &lt;${escapeHtml(commit.authorEmail)}&gt; &bull;
   ${escapeHtml(formatDate(commit.authorTimestamp, 'absolute'))} &bull;
@@ -319,7 +320,7 @@ ${
         .join(', ')}</div>`
     : ''
 }
-${commit.body ? `<div class="body">${escapeHtml(commit.body)}</div>` : ''}
+${commit.body ? `<div class="body">${escapeHtml(emojify(commit.body))}</div>` : ''}
 <div class="files-heading">
   <h3>Changed files (${commit.files.length})</h3>
   ${

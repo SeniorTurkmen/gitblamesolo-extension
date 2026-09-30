@@ -6,6 +6,8 @@ import type { GitExtension, Repository } from '../types/git';
 export interface RepositoryWatcherCallbacks {
   /** A repository's HEAD now points at a different commit (commit, amend, checkout, pull, reset...). */
   onHeadChanged: () => void;
+  /** Anything about a repository's state changed, a branch or remote branch moving included. */
+  onStateChanged: () => void;
   /** A repository was opened or closed, so file → repository resolution may be stale. */
   onRepositoriesChanged: () => void;
   /** A git config file changed, so the remote URL or user.email may be different. */
@@ -96,6 +98,7 @@ export class RepositoryWatcher implements vscode.Disposable {
     let lastHead = repo.state.HEAD?.commit;
     const disposables: vscode.Disposable[] = [
       repo.state.onDidChange(() => {
+        this.callbacks.onStateChanged();
         const head = repo.state.HEAD?.commit;
         if (head !== lastHead) {
           lastHead = head;

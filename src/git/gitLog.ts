@@ -66,3 +66,15 @@ export async function getCommitDetails(
     throw err;
   }
 }
+
+/** A commit's full message, subject and body, without the trailing newline; undefined when git fails. */
+export async function getCommitMessage(sha: string, repoRoot: string): Promise<string | undefined> {
+  try {
+    return (await runGit(['log', '-1', '--format=%B', sha, '--'], { cwd: repoRoot })).trimEnd();
+  } catch (err) {
+    if (err instanceof GitCliError) {
+      return undefined;
+    }
+    throw err;
+  }
+}

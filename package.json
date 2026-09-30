@@ -165,6 +165,16 @@
           "default": true,
           "description": "Tint the file blame column by how recent each line's commit is, from blue for the oldest commits in the file to orange for the newest."
         },
+        "gitBlameSolo.renderEmoji": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show emoji shortcodes in commit messages, such as :sparkles: or :bug: from gitmoji, as the emoji they stand for."
+        },
+        "gitBlameSolo.showUnpushed": {
+          "type": "boolean",
+          "default": false,
+          "description": "Mark commits that no remote branch contains yet as not pushed, in the hover and the Git Log panel. Repositories without remotes are not marked."
+        },
         "gitBlameSolo.highlightCommitLines": {
           "type": "boolean",
           "default": false,
@@ -206,6 +216,10 @@
       {
         "command": "gitBlameSolo.copyCommitHash",
         "title": "Git Blame Solo: Copy Commit Hash"
+      },
+      {
+        "command": "gitBlameSolo.copyCommitMessage",
+        "title": "Git Blame Solo: Copy Commit Message"
       },
       {
         "command": "gitBlameSolo.openCommitOnRemote",

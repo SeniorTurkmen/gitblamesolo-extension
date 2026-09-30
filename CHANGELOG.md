@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Added **gitmoji**: with `gitBlameSolo.renderEmoji` on, shortcodes such as `:sparkles:` and `:bug:` in commit messages show as ✨ and 🐛 in the annotation, hover, git log, and commit details. Off by default.
+- Added **Git Blame Solo: Copy Commit Message**, which copies the full message of the current line's commit. The blame hover has a **Copy message** button next to the hash.
+- Added an **unpushed commit** marker: with `gitBlameSolo.showUnpushed` on, commits that no remote branch contains yet are marked **Not pushed yet** in the hover and get a **not pushed** badge in the git log. Off by default.
+
 ## 0.3.0
 
 - Added **localized dates**: dates follow your operating system's region settings instead of always US English, so relative dates read like *vor 3 Tagen* or *3 gün önce* and exact dates like *22.09.2026, 14:39*. Set `gitBlameSolo.dateLocale` to `vscode` for VS Code's display language, or to a tag such as `en-GB`. The new `iso` date style shows *2026-09-22 14:39* in every locale.

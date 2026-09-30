@@ -27,6 +27,8 @@ export interface GitBlameSoloConfig {
   fileBlameTemplate: string;
   fileBlameHeatmap: boolean;
   highlightCommitLines: boolean;
+  renderEmoji: boolean;
+  showUnpushed: boolean;
 }
 
 export function getConfig(): GitBlameSoloConfig {
@@ -58,6 +60,8 @@ export function getConfig(): GitBlameSoloConfig {
     fileBlameTemplate: cfg.get<string>('fileBlame.template', '${author}, ${date}'),
     fileBlameHeatmap: cfg.get<boolean>('fileBlame.heatmap', true),
     highlightCommitLines: cfg.get<boolean>('highlightCommitLines', false),
+    renderEmoji: cfg.get<boolean>('renderEmoji', false),
+    showUnpushed: cfg.get<boolean>('showUnpushed', false),
   };
 }
 

@@ -53,6 +53,13 @@ describe('renderHistoryRows', () => {
     assert.ok(!file.includes('compare-from'));
   });
 
+  it('marks commits that are not pushed', () => {
+    const sha = entry().sha;
+    const html = renderHistoryRows([entry()], undefined, { ...OPTIONS, unpushed: new Set([sha]) });
+    assert.ok(html.includes('ref-unpushed'));
+    assert.ok(!renderHistoryRows([entry()], undefined, { ...OPTIONS, unpushed: new Set() }).includes('ref-unpushed'));
+  });
+
   it('shows the current user label for their own commits', () => {
     const html = renderHistoryRows([entry()], undefined, { ...OPTIONS, currentUserEmail: 'ADA@example.com' });
     assert.ok(html.includes('>You<'));
