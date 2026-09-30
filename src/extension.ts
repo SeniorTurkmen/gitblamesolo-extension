@@ -15,7 +15,7 @@ import { FileBlameDecorator } from './decorations/fileBlameDecorator';
 import { blameTarget, resolveBlameTarget } from './git/blameTarget';
 import { GitCliError, runGit } from './git/gitCli';
 import { getCommitDiff } from './git/gitCommitDiff';
-import { getParentLine } from './git/gitDiff';
+import { getLineDiffHunk, getParentLine } from './git/gitDiff';
 import { getCommitDetails, getCommitMessage } from './git/gitLog';
 import { clearRemoteCaches, getCommitLink } from './git/gitRemote';
 import { invalidateRepositoryCache } from './git/gitRepository';
@@ -25,8 +25,9 @@ import { buildGitShowUri, GIT_SHOW_SCHEME, GitShowContentProvider } from './git/
 import { BlameHoverProvider } from './hover/blameHoverProvider';
 import { BlameInfo } from './types';
 import { configureDates, resolveDateLocale } from './util/dateFormat';
-import { configureEmoji } from './util/emoji';
+import { configureEmoji, emojify } from './util/emoji';
 import { detectSystemLocale } from './util/systemLocale';
+import { ChangePeek } from './peek/changePeek';
 import { CommitDetailsPanel } from './webview/commitDetailsPanel';
 
 /** How long typing must pause before an edited document is blamed again with its unsaved text. */
@@ -535,6 +536,38 @@ export function activate(context: vscode.ExtensionContext): void {
       await vscode.env.clipboard.writeText(sha);
       void vscode.window.setStatusBarMessage(`$(check) Copied ${sha.slice(0, 7)} to clipboard`, 3000);
     }),
+  );
+
+  const changePeek = new ChangePeek();
+  context.subscriptions.push(
+    changePeek,
+    vscode.commands.registerCommand(
+      'gitBlameSolo.showCommitChange',
+      async (sha: string, repoRoot: string, relativePath: string, line: number, sourceUri: string, sourceLine: number) => {
+        const [hunk, commit] = await Promise.all([
+          lineDiffCache.getOrCompute(sha, `${relativePath}#${line}`, () =>
+            getLineDiffHunk({ sha, relativePath, line, repoRoot }),
+          ),
+          commitCache.getOrCompute(sha, () => getCommitDetails(sha, repoRoot)),
+        ]);
+        if (!hunk) {
+          return;
+        }
+        const uri = vscode.Uri.parse(sourceUri);
+        const editor = await vscode.window.showTextDocument(uri);
+        const position = new vscode.Position(sourceLine, 0);
+        editor.selection = new vscode.Selection(position, position);
+        await changePeek.show({
+          sourceUri: uri,
+          sourceLine,
+          hunk,
+          focusNewLine: line + 1,
+          description: `${sha.slice(0, 7)} ${emojify(commit?.summary ?? '')}`.trim(),
+          fileName: path.posix.basename(relativePath),
+          languageId: editor.document.languageId,
+        });
+      },
+    ),
   );
 
   context.subscriptions.push(

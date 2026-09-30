@@ -87,4 +87,21 @@ describe('file blame', () => {
       await vscode.commands.executeCommand('workbench.action.files.revert');
     }
   });
+
+  it('shows a commit\'s change inline, under its line', async () => {
+    const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim();
+    await vscode.commands.executeCommand('gitBlameSolo.showCommitChange', sha, repoRoot, 'file.txt', 1, fileUri.toString(), 1);
+    let peek: vscode.TextEditor | undefined;
+    for (let attempt = 0; attempt < 50 && !peek; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      peek = vscode.window.visibleTextEditors.find((editor) => editor.document.uri.scheme === 'gitBlameSoloChange');
+    }
+    assert.ok(
+      peek,
+      `docs: ${vscode.workspace.textDocuments.map((d) => d.uri.toString()).join(', ')}; editors: ${vscode.window.visibleTextEditors.map((e) => e.document.uri.toString()).join(', ')}`,
+    );
+    assert.strictEqual(peek.document.getText(), 'first line\nsecond line');
+    assert.strictEqual(peek.document.languageId, 'plaintext');
+    await vscode.commands.executeCommand('closeReferenceSearch');
+  });
 });
