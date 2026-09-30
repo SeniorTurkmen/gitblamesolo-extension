@@ -133,6 +133,7 @@ By default the popup only opens over the annotation, so hovering your code for o
 - **Pick which history to show:** the current branch, all branches (including remote branches and tags), or any single local or remote branch.
 - **Search** commit messages and **filter by author** (name or email). Both match the text as typed, ignoring case. Click an author in the list to show only their commits.
 - **Previous versions of a file:** in a file's history, the **Open** button on a commit opens the file as it was then (read-only, with blame and the hover), and **Compare** opens it in the diff editor against your working copy, even if the file has been renamed since. **Git Blame Solo: Open File at Revision…** and **Compare with Revision…** do the same from a list of the file's commits; they are in the editor title bar's **…** menu and the right-click menus of files and editor tabs.
+- **Compare:** **Git Blame Solo: Compare Branches, Tags, or Commits…** (also a button in the Source Control title bar) compares two branches, tags, or commits, or one with your working copy, and opens every file that differs in one multi-diff editor, with renames detected. In the git log, **Compare…** on a commit starts the comparison from it. **Compare File Between Revisions…** diffs one file between two of the commits that changed it.
 - **Author history:** **Git Blame Solo: Show Author History**, or the author in the blame hover, opens the log of every branch filtered to that author's commits.
 - **File history:** **Git Blame Solo: Show File History** (the history icon in the editor title bar, or the right-click menu of a file in the Explorer, an editor tab, or the Source Control view) shows only the commits that changed that file, following renames. Clear the file chip in the toolbar to see every commit again. A commit opened from a file's history marks that file in the commit details panel.
 - **Click a commit** (or press <kbd>Enter</kbd> on it) to open the commit details panel with its diffs. The button next to the hash copies it. Use the arrow keys to move between commits.
@@ -185,6 +186,8 @@ Open the Command Palette (<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P
 | `Git Blame Solo: Show File History` | Opens the git log filtered to the commits that changed the active file. |
 | `Git Blame Solo: Open File at Revision…` | Lists the commits that changed the active file; opens the file as it was in the one you pick. |
 | `Git Blame Solo: Compare with Revision…` | Lists the commits that changed the active file; compares its version in the one you pick with your working copy. |
+| `Git Blame Solo: Compare Branches, Tags, or Commits…` | Compares two branches, tags, or commits, or one with your working copy, in a multi-diff editor. |
+| `Git Blame Solo: Compare File Between Revisions…` | Diffs the active file between two of the commits that changed it. |
 | `Git Blame Solo: Show Author History` | Opens the git log of every branch, filtered to the commits by the author of the current line. |
 | `Git Blame Solo: Show Line History` | Lists every commit that changed the current line. Picking one opens its change in the diff editor. |
 | `Git Blame Solo: Blame Previous Revision` | Compares the file as it was before the commit that last changed the current line with its current version, at that line. |

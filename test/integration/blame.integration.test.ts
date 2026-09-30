@@ -6,6 +6,7 @@ import * as path from 'path';
 import { applyPatchReverse } from '../../src/git/gitApply';
 import { blameFile, toBlameInfo } from '../../src/git/gitBlame';
 import { buildHunkPatch, getCommitDiff, isRevertibleHunk } from '../../src/git/gitCommitDiff';
+import { getChangedFiles, getMergeBase, getTags, resolveCommit } from '../../src/git/gitCompare';
 import { getLineDiffHunk, getParentLine } from '../../src/git/gitDiff';
 import { getBranches, getHistoryPage } from '../../src/git/gitHistory';
 import { getLineHistory } from '../../src/git/gitLineHistory';
@@ -571,5 +572,31 @@ describe('git history', () => {
     assert.strictEqual(branches.current, 'main');
     assert.deepStrictEqual([...branches.local].sort(), ['feature', 'main', 'side']);
     assert.deepStrictEqual(branches.remote, []);
+  });
+
+  it('lists the files that differ between two refs, with renames', async () => {
+    assert.deepStrictEqual(await getChangedFiles(repoRoot, 'v1', 'main'), [{ status: 'R', path: 'b.txt', oldPath: 'a.txt' }]);
+    assert.deepStrictEqual(await getChangedFiles(repoRoot, 'feature', 'v1'), [{ status: 'M', path: 'a.txt' }]);
+    assert.deepStrictEqual(await getChangedFiles(repoRoot, 'main', 'main'), []);
+    assert.strictEqual(await getChangedFiles(repoRoot, 'no-such-ref', 'main'), undefined);
+  });
+
+  it('lists the files that differ from the working copy', async () => {
+    fs.writeFileSync(path.join(repoRoot, 'b.txt'), 'three\n');
+    try {
+      assert.deepStrictEqual(await getChangedFiles(repoRoot, 'main'), [{ status: 'M', path: 'b.txt' }]);
+    } finally {
+      git(repoRoot, ['checkout', '--', 'b.txt']);
+    }
+  });
+
+  it('resolves refs to commits and finds merge bases and tags', async () => {
+    const v1 = execFileSync('git', ['rev-parse', 'v1'], { cwd: repoRoot, encoding: 'utf8' }).trim();
+    assert.strictEqual(await resolveCommit(repoRoot, 'v1'), v1);
+    assert.strictEqual(await resolveCommit(repoRoot, 'no-such-ref'), undefined);
+    assert.strictEqual(await resolveCommit(repoRoot, '--all'), undefined);
+    const addA = execFileSync('git', ['rev-parse', 'feature~1'], { cwd: repoRoot, encoding: 'utf8' }).trim();
+    assert.strictEqual(await getMergeBase(repoRoot, 'feature', 'main'), addA);
+    assert.deepStrictEqual(await getTags(repoRoot), ['v1']);
   });
 });

@@ -17,7 +17,8 @@ type WebviewMessage =
   | { type: 'openCommit'; sha: string; path?: string }
   | { type: 'copySha'; sha: string }
   | { type: 'openFileAtCommit'; sha: string; path?: string }
-  | { type: 'compareWithWorkingFile'; sha: string; path?: string };
+  | { type: 'compareWithWorkingFile'; sha: string; path?: string }
+  | { type: 'compareFrom'; sha: string };
 
 export interface HistoryPanelSettings {
   dateStyle: DateStyle;
@@ -145,6 +146,9 @@ export class HistoryPanel {
           // The file's path in the commit differs from its working copy's after a rename.
           await compareWithWorkingFile(this.repoRoot, message.sha, message.path ?? this.filter.path, this.filter.path);
         }
+        break;
+      case 'compareFrom':
+        await vscode.commands.executeCommand('gitBlameSolo.compareRefs', this.repoRoot, message.sha);
         break;
       case 'copySha':
         await vscode.commands.executeCommand('gitBlameSolo.copyCommitHash', message.sha);

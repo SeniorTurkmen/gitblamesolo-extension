@@ -6,6 +6,7 @@ import { CommitDiffCache } from './cache/commitDiffCache';
 import { LineDiffCache } from './cache/lineDiffCache';
 import { changeSetting } from './commands/changeSetting';
 import { showAuthorHistory, showFileHistory, showHistory } from './commands/history';
+import { compareFileRevisions, compareRefs } from './commands/compare';
 import { showLineHistory } from './commands/lineHistory';
 import { activeRepoFile, compareWithWorkingFile, openFileAtRevision, pickRevision } from './commands/revision';
 import { getConfig, onConfigChanged } from './config';
@@ -270,6 +271,8 @@ export function activate(context: vscode.ExtensionContext): void {
         }
       },
     ),
+    vscode.commands.registerCommand('gitBlameSolo.compareRefs', compareRefs),
+    vscode.commands.registerCommand('gitBlameSolo.compareFileRevisions', compareFileRevisions),
     vscode.commands.registerCommand(
       'gitBlameSolo.compareWithRevision',
       async (repoRootArg?: unknown, shaArg?: string, revisionPathArg?: string, workingPathArg?: string) => {

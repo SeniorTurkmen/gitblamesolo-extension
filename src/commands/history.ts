@@ -29,7 +29,7 @@ function uriFromMenuArg(arg: unknown): vscode.Uri | undefined {
 }
 
 /** The repository to show: the one passed by a menu, the active file's, or one the user picks. */
-async function pickRepository(arg: unknown): Promise<string | undefined> {
+export async function pickRepository(arg: unknown): Promise<string | undefined> {
   const argUri = uriFromMenuArg(arg);
   if (argUri) {
     // resolveRepository looks up the directory a file is in, so for a directory ask about a file inside it.

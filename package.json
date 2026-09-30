@@ -223,6 +223,15 @@
         "title": "Git Blame Solo: Compare with Revision…"
       },
       {
+        "command": "gitBlameSolo.compareFileRevisions",
+        "title": "Git Blame Solo: Compare File Between Revisions…"
+      },
+      {
+        "command": "gitBlameSolo.compareRefs",
+        "title": "Git Blame Solo: Compare Branches, Tags, or Commits…",
+        "icon": "$(git-compare)"
+      },
+      {
         "command": "gitBlameSolo.showLineHistory",
         "title": "Git Blame Solo: Show Line History"
       },
@@ -280,6 +289,11 @@
           "command": "gitBlameSolo.compareWithRevision",
           "when": "(resourceScheme == file || resourceScheme == gitBlameSoloShow)",
           "group": "9_gitBlameSolo@2"
+        },
+        {
+          "command": "gitBlameSolo.compareFileRevisions",
+          "when": "(resourceScheme == file || resourceScheme == gitBlameSoloShow)",
+          "group": "9_gitBlameSolo@3"
         }
       ],
       "editor/title/context": [
@@ -295,6 +309,11 @@
         },
         {
           "command": "gitBlameSolo.compareWithRevision",
+          "when": "resourceScheme == file",
+          "group": "9_gitBlameSolo"
+        },
+        {
+          "command": "gitBlameSolo.compareFileRevisions",
           "when": "resourceScheme == file",
           "group": "9_gitBlameSolo"
         }
@@ -314,11 +333,21 @@
           "command": "gitBlameSolo.compareWithRevision",
           "when": "resourceScheme == file && !explorerResourceIsFolder",
           "group": "9_gitBlameSolo"
+        },
+        {
+          "command": "gitBlameSolo.compareFileRevisions",
+          "when": "resourceScheme == file && !explorerResourceIsFolder",
+          "group": "9_gitBlameSolo"
         }
       ],
       "scm/title": [
         {
           "command": "gitBlameSolo.showHistory",
+          "when": "scmProvider == git",
+          "group": "navigation"
+        },
+        {
+          "command": "gitBlameSolo.compareRefs",
           "when": "scmProvider == git",
           "group": "navigation"
         }
