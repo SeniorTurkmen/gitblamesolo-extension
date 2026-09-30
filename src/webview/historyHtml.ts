@@ -73,7 +73,7 @@ export function renderHistoryRows(
         `<div class="row" data-sha="${escapeHtml(entry.sha)}"${entry.path ? ` data-path="${escapeHtml(entry.path)}"` : ''} tabindex="-1">` +
         graphCell +
         `<span class="summary">${renderRefs(entry.refs)}<span class="text">${escapeHtml(entry.summary)}</span></span>` +
-        `<span class="author" title="${escapeHtml(`${entry.authorName} <${entry.authorEmail}>`)}">${escapeHtml(author)}</span>` +
+        `<span class="author" data-author="${escapeHtml(entry.authorEmail || entry.authorName)}" title="${escapeHtml(`${entry.authorName} <${entry.authorEmail}> (click to show only their commits)`)}">${escapeHtml(author)}</span>` +
         `<span class="date" title="${escapeHtml(formatDate(entry.authorTimestamp, 'absolute'))}">${escapeHtml(
           formatDate(entry.authorTimestamp, options.dateStyle, undefined, options.now),
         )}</span>` +
@@ -202,6 +202,8 @@ export function renderHistoryShell(view: HistoryShellView, nonce: string): strin
   .row:not(:has(.graph-cell)) { grid-template-columns: minmax(0, 1fr) minmax(6em, 14em) 9em 5.5em 3.5em; }
   .summary { overflow: hidden; text-overflow: ellipsis; }
   .author, .date { overflow: hidden; text-overflow: ellipsis; color: var(--vscode-descriptionForeground); }
+  .author { cursor: pointer; }
+  .author:hover { text-decoration: underline; color: var(--vscode-textLink-foreground); }
   .row.selected .author, .row.selected .date, .row.selected .sha { color: inherit; }
   .sha { font-family: var(--vscode-editor-font-family, monospace); color: var(--vscode-descriptionForeground); }
   .copy { visibility: hidden; padding: 0 6px; font-size: 0.9em; }
@@ -276,7 +278,11 @@ export function renderHistoryShell(view: HistoryShellView, nonce: string): strin
     const row = e.target.closest('.row');
     if (!row) return;
     select(row);
-    if (e.target.closest('.copy')) {
+    const authorCell = e.target.closest('.author');
+    if (authorCell) {
+      author.value = authorCell.dataset.author;
+      sendFilter();
+    } else if (e.target.closest('.copy')) {
       vscode.postMessage({ type: 'copySha', sha: row.dataset.sha });
     } else {
       vscode.postMessage({ type: 'openCommit', sha: row.dataset.sha, path: row.dataset.path });

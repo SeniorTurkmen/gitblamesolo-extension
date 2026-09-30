@@ -36,6 +36,12 @@ describe('renderHistoryRows', () => {
     assert.ok(!renderHistoryRows([entry()], undefined, OPTIONS).includes('data-path'));
   });
 
+  it("lets the author be clicked to filter by their email", () => {
+    const html = renderHistoryRows([entry()], undefined, OPTIONS);
+    assert.ok(html.includes('data-author="ada@example.com"'));
+    assert.ok(renderHistoryRows([entry({ authorEmail: '' })], undefined, OPTIONS).includes('data-author="Ada &lt;Lovelace&gt;"'));
+  });
+
   it('shows the current user label for their own commits', () => {
     const html = renderHistoryRows([entry()], undefined, { ...OPTIONS, currentUserEmail: 'ADA@example.com' });
     assert.ok(html.includes('>You<'));

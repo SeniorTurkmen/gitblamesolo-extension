@@ -5,7 +5,7 @@ import { CommitCache } from './cache/commitCache';
 import { CommitDiffCache } from './cache/commitDiffCache';
 import { LineDiffCache } from './cache/lineDiffCache';
 import { changeSetting } from './commands/changeSetting';
-import { showFileHistory, showHistory } from './commands/history';
+import { showAuthorHistory, showFileHistory, showHistory } from './commands/history';
 import { showLineHistory } from './commands/lineHistory';
 import { getConfig, onConfigChanged } from './config';
 import { CurrentLineBlameDecorator } from './decorations/currentLineDecorator';
@@ -253,6 +253,19 @@ export function activate(context: vscode.ExtensionContext): void {
     }
     return { blame, repoRoot: target.repoRoot, document, line };
   }
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('gitBlameSolo.showAuthorHistory', async (repoRootArg?: string, authorArg?: string) => {
+      if (repoRootArg && authorArg) {
+        showAuthorHistory(repoRootArg, authorArg);
+        return;
+      }
+      const target = await blameAtCursor();
+      if (target) {
+        showAuthorHistory(target.repoRoot, target.blame.authorEmail || target.blame.authorName);
+      }
+    }),
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand(

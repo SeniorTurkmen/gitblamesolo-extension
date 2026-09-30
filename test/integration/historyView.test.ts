@@ -59,6 +59,13 @@ describe('history view', () => {
     assert.ok(labels.includes('History: notes.txt'), labels.join(', '));
   });
 
+  it("opens an author's commits in the repository's panel", async () => {
+    await vscode.commands.executeCommand('gitBlameSolo.showAuthorHistory', repoRoot, 'test@example.com');
+    const title = `Git Log: ${path.basename(repoRoot)}`;
+    const labels = await waitForTab(title);
+    assert.ok(labels.includes(title), labels.join(', '));
+  });
+
   it("reuses the repository's panel for its git log", async () => {
     await vscode.commands.executeCommand('gitBlameSolo.showHistory', fileUri);
     const title = `Git Log: ${path.basename(repoRoot)}`;

@@ -5,6 +5,7 @@ import { GitBlameSoloConfig, isExcluded } from '../config';
 import { BLAMEABLE_SCHEMES, blameTarget, resolveBlameTarget } from '../git/blameTarget';
 import { getCurrentUserEmail } from '../git/gitRemote';
 import { BlameInfo } from '../types';
+import { commitLineRuns } from '../util/commitLines';
 import { formatDecorationText, formatUncommittedText } from '../util/dateFormat';
 
 export interface CurrentLineDecoratorDeps {
@@ -15,6 +16,10 @@ export interface CurrentLineDecoratorDeps {
 /** Shows blame for the active line as an end-of-line annotation and/or a status bar item. */
 export class CurrentLineBlameDecorator implements vscode.Disposable {
   private readonly decorationType: vscode.TextEditorDecorationType;
+  /** Marks the other lines from the current line's commit. */
+  private readonly commitLinesType: vscode.TextEditorDecorationType;
+  /** The editor showing commit lines, so they can be cleared when another editor takes over. */
+  private commitLinesEditor: vscode.TextEditor | undefined;
   private readonly statusBarItem: vscode.StatusBarItem;
   private readonly deps: CurrentLineDecoratorDeps;
   private timer: NodeJS.Timeout | undefined;
@@ -25,6 +30,13 @@ export class CurrentLineBlameDecorator implements vscode.Disposable {
     this.decorationType = vscode.window.createTextEditorDecorationType({
       isWholeLine: false,
       rangeBehavior: vscode.DecorationRangeBehavior.ClosedOpen,
+    });
+    this.commitLinesType = vscode.window.createTextEditorDecorationType({
+      isWholeLine: true,
+      backgroundColor: new vscode.ThemeColor('gitBlameSolo.commitLinesBackground'),
+      overviewRulerColor: new vscode.ThemeColor('gitBlameSolo.commitLinesOverviewRuler'),
+      overviewRulerLane: vscode.OverviewRulerLane.Left,
+      rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
     });
     this.statusBarItem = vscode.window.createStatusBarItem('gitBlameSolo.statusBar', vscode.StatusBarAlignment.Left, 100);
     this.statusBarItem.name = 'Git Blame Solo';
@@ -40,6 +52,7 @@ export class CurrentLineBlameDecorator implements vscode.Disposable {
     } else {
       this.generation++;
       this.statusBarItem.hide();
+      this.clearCommitLines();
     }
   }
 
@@ -64,6 +77,7 @@ export class CurrentLineBlameDecorator implements vscode.Disposable {
       clearTimeout(this.timer);
     }
     this.decorationType.dispose();
+    this.commitLinesType.dispose();
     this.statusBarItem.dispose();
   }
 
@@ -78,6 +92,24 @@ export class CurrentLineBlameDecorator implements vscode.Disposable {
   private clear(editor: vscode.TextEditor): void {
     editor.setDecorations(this.decorationType, []);
     this.statusBarItem.hide();
+    this.clearCommitLines();
+  }
+
+  private clearCommitLines(): void {
+    this.commitLinesEditor?.setDecorations(this.commitLinesType, []);
+    this.commitLinesEditor = undefined;
+  }
+
+  /** Marks every line of the file that the current line's commit last changed. */
+  private showCommitLines(editor: vscode.TextEditor, runs: { start: number; end: number }[]): void {
+    if (this.commitLinesEditor && this.commitLinesEditor !== editor) {
+      this.clearCommitLines();
+    }
+    editor.setDecorations(
+      this.commitLinesType,
+      runs.map((run) => new vscode.Range(run.start, 0, run.end, 0)),
+    );
+    this.commitLinesEditor = editor;
   }
 
   private async update(editor: vscode.TextEditor): Promise<void> {
@@ -86,7 +118,7 @@ export class CurrentLineBlameDecorator implements vscode.Disposable {
     const document = editor.document;
 
     if (
-      (!config.enabled && !config.statusBarEnabled) ||
+      (!config.enabled && !config.statusBarEnabled && !config.highlightCommitLines) ||
       !BLAMEABLE_SCHEMES.includes(document.uri.scheme) ||
       document.getText().length > config.maxFileSizeBytes ||
       isExcluded(document, config)
@@ -154,6 +186,19 @@ export class CurrentLineBlameDecorator implements vscode.Disposable {
       ]);
     } else {
       editor.setDecorations(this.decorationType, []);
+    }
+
+    if (config.highlightCommitLines && !blame.isUncommitted) {
+      // The line's blame came from the cached whole-file blame, so this runs no git.
+      const fileBlame = await this.deps.blameCache.getFile(document, () =>
+        blameTarget(target, document, config.blameOptions),
+      );
+      if (myGeneration !== this.generation) {
+        return;
+      }
+      this.showCommitLines(editor, fileBlame ? commitLineRuns(fileBlame, blame.sha) : []);
+    } else {
+      this.clearCommitLines();
     }
 
     if (config.statusBarEnabled) {

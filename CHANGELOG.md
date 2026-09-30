@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Added **commit line highlighting**: with `gitBlameSolo.highlightCommitLines` on, every other line of the file from the current line's commit is highlighted, with marks in the scroll bar. Off by default; the colors are the `gitBlameSolo.commitLinesBackground` and `gitBlameSolo.commitLinesOverviewRuler` theme colors.
+- Added **author history**: **Git Blame Solo: Show Author History**, the author in the blame hover, or an author in the git log opens the log filtered to that author's commits.
+
 ## 0.2.0
 
 - Added the **git log**: **Git Blame Solo: Show Git Log** opens a panel with the repository's commits and a commit graph, showing branches, remote branches, and tags on their commits. Show the current branch, all branches, or a single branch; search commit messages and filter by author. Click a commit to open its details. It is also in the Source Control view's title bar.
