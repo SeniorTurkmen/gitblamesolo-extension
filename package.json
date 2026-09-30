@@ -59,8 +59,8 @@
         },
         "gitBlameSolo.dateLocale": {
           "type": "string",
-          "default": "",
-          "description": "Language and country whose date conventions to follow, as a tag such as en-GB, de-DE, or tr-TR. Empty uses VS Code's display language; system uses your operating system's. An unknown tag falls back to VS Code's language."
+          "default": "system",
+          "description": "Language and country whose date conventions to follow: system for your operating system's region settings, vscode for VS Code's display language, or a tag such as en-GB, de-DE, or tr-TR. An unknown tag falls back to VS Code's language."
         },
         "gitBlameSolo.decorationTemplate": {
           "type": "string",

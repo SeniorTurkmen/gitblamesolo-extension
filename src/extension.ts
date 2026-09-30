@@ -24,6 +24,7 @@ import { buildGitShowUri, GIT_SHOW_SCHEME, GitShowContentProvider } from './git/
 import { BlameHoverProvider } from './hover/blameHoverProvider';
 import { BlameInfo } from './types';
 import { configureDates, resolveDateLocale } from './util/dateFormat';
+import { detectSystemLocale } from './util/systemLocale';
 import { CommitDetailsPanel } from './webview/commitDetailsPanel';
 
 /** How long typing must pause before an edited document is blamed again with its unsaved text. */
@@ -41,15 +42,22 @@ async function warnIfGitMissing(): Promise<void> {
   }
 }
 
+/** The operating system's locale, once it's known; until then, the extension host's default. */
+let systemLocale = Intl.DateTimeFormat().resolvedOptions().locale;
+
 /** Applies the date settings, which every date formatted from then on uses. */
 function applyDateSettings(): void {
   const { dateLocale, dateStyle } = getConfig();
-  const systemLocale = Intl.DateTimeFormat().resolvedOptions().locale;
   configureDates(resolveDateLocale(dateLocale, vscode.env.language, systemLocale), dateStyle === 'iso');
 }
 
 export function activate(context: vscode.ExtensionContext): void {
   applyDateSettings();
+  void detectSystemLocale().then((locale) => {
+    systemLocale = locale;
+    applyDateSettings();
+    redraw();
+  });
   void warnIfGitMissing();
 
   const blameCache = new BlameCache();

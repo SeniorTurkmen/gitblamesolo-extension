@@ -10,13 +10,14 @@ export function configureDates(locale: string, iso: boolean): void {
 }
 
 /**
- * The locale for the `dateLocale` setting: empty for VS Code's display
- * language, `system` for the operating system's, otherwise a BCP 47 tag such
- * as `de-DE`. A tag Intl can't use falls back to VS Code's language.
+ * The locale for the `dateLocale` setting: `system` for the operating
+ * system's, `vscode` (or empty) for VS Code's display language, otherwise a
+ * BCP 47 tag such as `de-DE`. A tag Intl can't use falls back to VS Code's language.
  */
 export function resolveDateLocale(setting: string, displayLanguage: string, systemLocale: string): string {
   const requested = setting.trim();
-  const candidate = !requested ? displayLanguage : requested.toLowerCase() === 'system' ? systemLocale : requested;
+  const keyword = requested.toLowerCase();
+  const candidate = !requested || keyword === 'vscode' ? displayLanguage : keyword === 'system' ? systemLocale : requested;
   for (const locale of [candidate, displayLanguage]) {
     try {
       if (Intl.DateTimeFormat.supportedLocalesOf([locale]).length > 0) {

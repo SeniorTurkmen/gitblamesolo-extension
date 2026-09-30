@@ -49,7 +49,8 @@ describe('date locale and ISO dates', () => {
     assert.strictEqual(formatDate(timestamp, 'relative', undefined, now), '3 days ago');
   });
 
-  it("resolves the setting to VS Code's language, the system's, or a tag", () => {
+  it("resolves the setting to the system's locale, VS Code's language, or a tag", () => {
+    assert.strictEqual(resolveDateLocale('vscode', 'tr', 'en-GB'), 'tr');
     assert.strictEqual(resolveDateLocale('', 'tr', 'en-GB'), 'tr');
     assert.strictEqual(resolveDateLocale('system', 'tr', 'en-GB'), 'en-GB');
     assert.strictEqual(resolveDateLocale(' de-DE ', 'tr', 'en-GB'), 'de-DE');
