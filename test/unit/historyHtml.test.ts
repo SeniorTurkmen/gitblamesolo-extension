@@ -42,6 +42,15 @@ describe('renderHistoryRows', () => {
     assert.ok(renderHistoryRows([entry({ authorEmail: '' })], undefined, OPTIONS).includes('data-author="Ada &lt;Lovelace&gt;"'));
   });
 
+  it("offers Open and Compare only for a file's history", () => {
+    const plain = renderHistoryRows([entry()], undefined, OPTIONS);
+    assert.ok(plain.includes('class="act copy"'));
+    assert.ok(!plain.includes('open-file'));
+    const file = renderHistoryRows([entry({ path: 'a.ts' })], undefined, { ...OPTIONS, fileActions: true });
+    assert.ok(file.includes('class="act open-file"'));
+    assert.ok(file.includes('class="act compare"'));
+  });
+
   it('shows the current user label for their own commits', () => {
     const html = renderHistoryRows([entry()], undefined, { ...OPTIONS, currentUserEmail: 'ADA@example.com' });
     assert.ok(html.includes('>You<'));

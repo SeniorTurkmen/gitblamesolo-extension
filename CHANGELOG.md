@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added **previous versions of a file**: in a file's history, **Open** opens the file as it was in a commit, and **Compare** diffs that version against your working copy, following renames. **Git Blame Solo: Open File at Revision…** and **Compare with Revision…** do the same from a list of the file's commits, from the editor title bar's **…** menu, the Explorer, and editor tabs.
 - Added **commit line highlighting**: with `gitBlameSolo.highlightCommitLines` on, every other line of the file from the current line's commit is highlighted, with marks in the scroll bar. Off by default; the colors are the `gitBlameSolo.commitLinesBackground` and `gitBlameSolo.commitLinesOverviewRuler` theme colors.
 - Added **author history**: **Git Blame Solo: Show Author History**, the author in the blame hover, or an author in the git log opens the log filtered to that author's commits.
 

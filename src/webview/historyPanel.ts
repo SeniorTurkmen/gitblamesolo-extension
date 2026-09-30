@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { getBranches, getHistoryPage, HistoryEntry, HistoryFilter, HistoryScope } from '../git/gitHistory';
+import { compareWithWorkingFile, openFileAtRevision } from '../commands/revision';
 import { getCurrentUserEmail } from '../git/gitRemote';
 import { DateStyle } from '../util/dateFormat';
 import { layoutGraph } from '../util/historyGraph';
@@ -14,7 +15,9 @@ type WebviewMessage =
   | { type: 'filter'; scope: string; search: string; author: string; path: string }
   | { type: 'more' }
   | { type: 'openCommit'; sha: string; path?: string }
-  | { type: 'copySha'; sha: string };
+  | { type: 'copySha'; sha: string }
+  | { type: 'openFileAtCommit'; sha: string; path?: string }
+  | { type: 'compareWithWorkingFile'; sha: string; path?: string };
 
 export interface HistoryPanelSettings {
   dateStyle: DateStyle;
@@ -132,6 +135,17 @@ export class HistoryPanel {
           this.filter.path ? (message.path ?? this.filter.path) : undefined,
         );
         break;
+      case 'openFileAtCommit':
+        if (this.filter.path) {
+          await openFileAtRevision(this.repoRoot, message.sha, message.path ?? this.filter.path);
+        }
+        break;
+      case 'compareWithWorkingFile':
+        if (this.filter.path) {
+          // The file's path in the commit differs from its working copy's after a rename.
+          await compareWithWorkingFile(this.repoRoot, message.sha, message.path ?? this.filter.path, this.filter.path);
+        }
+        break;
       case 'copySha':
         await vscode.commands.executeCommand('gitBlameSolo.copyCommitHash', message.sha);
         break;
@@ -163,6 +177,7 @@ export class HistoryPanel {
       dateStyle: settings.dateStyle,
       currentUserLabel: settings.currentUserLabel,
       currentUserEmail,
+      fileActions: Boolean(this.filter.path),
     });
 
     const count = this.entries.length;
