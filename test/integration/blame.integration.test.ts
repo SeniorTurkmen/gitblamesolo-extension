@@ -7,7 +7,7 @@ import { applyPatchReverse } from '../../src/git/gitApply';
 import { blameFile, toBlameInfo } from '../../src/git/gitBlame';
 import { buildHunkPatch, getCommitDiff, isRevertibleHunk } from '../../src/git/gitCommitDiff';
 import { getChangedFiles, getMergeBase, getTags, resolveCommit } from '../../src/git/gitCompare';
-import { getLineDiffHunk, getParentLine } from '../../src/git/gitDiff';
+import { getLineDiffHunk, getParentLine, getUncommittedHunk } from '../../src/git/gitDiff';
 import { getBranches, getHistoryPage } from '../../src/git/gitHistory';
 import { getLineHistory } from '../../src/git/gitLineHistory';
 import { repositoryGitConfigPath } from '../../src/git/gitConfigFiles';
@@ -642,5 +642,42 @@ describe('unpushed commits and commit messages', () => {
     const unpushed = await getUnpushedCommits(repoRoot);
     assert.deepStrictEqual([...(unpushed ?? [])], [head()]);
     assert.ok(!unpushed?.has(pushed));
+  });
+});
+
+describe('uncommitted hunk', () => {
+  let repoRoot: string;
+  const lines = (rows: string[]) => rows.map((row) => `${row}\n`).join('');
+
+  before(() => {
+    repoRoot = initRepo('gitblamesolo-uncommitted-');
+    fs.writeFileSync(path.join(repoRoot, 'a.txt'), lines(['c', 'b', 'b', 'c', 'c', 'b', 'b', 'c', 'c', 'a']));
+    git(repoRoot, ['add', 'a.txt']);
+    git(repoRoot, ['commit', '-m', 'Add a']);
+  });
+
+  after(() => removeRepo(repoRoot));
+
+  it('pairs a changed line with the line it replaced, among repeated lines', async () => {
+    const current = lines(['c', 'b', 'b', 'cX', 'c', 'b', 'b', 'c', 'c', 'bX', 'a']);
+    const hunk = await getUncommittedHunk(repoRoot, 'a.txt', current, 3);
+    assert.ok(hunk?.includes(' b\n-c\n+cX\n c\n'), hunk);
+  });
+
+  it('keeps changes far apart in separate hunks', async () => {
+    const rows = Array.from({ length: 30 }, (_, i) => `line ${i + 1}`);
+    fs.writeFileSync(path.join(repoRoot, 'b.txt'), lines(rows));
+    git(repoRoot, ['add', 'b.txt']);
+    git(repoRoot, ['commit', '-m', 'Add b']);
+    const current = [...rows];
+    current[2] = 'first';
+    current[25] = 'second';
+    const hunk = await getUncommittedHunk(repoRoot, 'b.txt', lines(current), 25);
+    assert.ok(hunk?.startsWith('@@ -23,7 +23,7 @@'), hunk);
+    assert.ok(hunk?.includes('-line 26\n+second') && !hunk.includes('first'), hunk);
+  });
+
+  it('shows every line of a new file as added', async () => {
+    assert.strictEqual(await getUncommittedHunk(repoRoot, 'new.txt', 'x\ny\n', 1), '@@ -0,0 +1,2 @@\n+x\n+y');
   });
 });

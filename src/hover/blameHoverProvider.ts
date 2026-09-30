@@ -5,16 +5,14 @@ import { CommitCache } from '../cache/commitCache';
 import { LineDiffCache } from '../cache/lineDiffCache';
 import { GitBlameSoloConfig, isExcluded } from '../config';
 import { BLAMEABLE_SCHEMES, blameTarget, resolveBlameTarget } from '../git/blameTarget';
-import { getLineDiffHunk } from '../git/gitDiff';
+import { getLineDiffHunk, getUncommittedHunk } from '../git/gitDiff';
 import { getCommitDetails } from '../git/gitLog';
 import { getCommitLink, pullRequestLabel } from '../git/gitRemote';
-import { getFileAtRevision } from '../git/gitShowContentProvider';
 import { UnpushedCache } from '../git/gitUnpushed';
 import { formatAuthor } from '../util/authorFormat';
 import { formatDate } from '../util/dateFormat';
 import { countDiffStats, parseDiffHunkLines } from '../util/diffRender';
 import { emojify } from '../util/emoji';
-import { diffHunkForLine } from '../util/lineDiff';
 
 function buildShowDetailsCommandUri(
   sha: string,
@@ -210,11 +208,10 @@ export class BlameHoverProvider implements vscode.HoverProvider {
         md.appendMarkdown(`$(save) File saved ${formatDate(mtimeSeconds, 'absolute')}`);
       }
       // Compared with the last commit, unsaved edits included, as blame sees them.
-      const committed = await getFileAtRevision('HEAD', repoRoot, target.relativePath);
+      const diffHunk = await getUncommittedHunk(repoRoot, target.relativePath, document.getText(), line);
       if (token.isCancellationRequested) {
         return undefined;
       }
-      const diffHunk = diffHunkForLine(committed, document.getText(), line);
       const compareUri = `command:gitBlameSolo.compareWithRevision?${encodeURIComponent(
         JSON.stringify([repoRoot, 'HEAD', target.relativePath, target.relativePath]),
       )}`;

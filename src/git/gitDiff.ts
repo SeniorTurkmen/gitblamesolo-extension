@@ -1,3 +1,6 @@
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { GitCliError, runGit } from './gitCli';
 
 const MAX_HUNK_LINES = 30;
@@ -31,6 +34,48 @@ export async function getLineDiffHunk(options: LineDiffOptions): Promise<string 
       return undefined;
     }
     throw err;
+  }
+}
+
+/**
+ * The hunk holding the uncommitted change at the 0-based `line` of `content`,
+ * the file's current text, unsaved edits included, compared with its last
+ * commit. Git computes it, from temporary copies of both, so it splits and
+ * aligns changes exactly as it does for committed lines.
+ */
+export async function getUncommittedHunk(
+  repoRoot: string,
+  relativePath: string,
+  content: string,
+  line: number,
+): Promise<string | undefined> {
+  let committed = '';
+  try {
+    committed = await runGit(['show', `HEAD:${relativePath}`], { cwd: repoRoot });
+  } catch (err) {
+    // A file new since the last commit, or a repository without commits: every line is added.
+    if (!(err instanceof GitCliError)) {
+      throw err;
+    }
+  }
+  const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'gitblamesolo-diff-'));
+  try {
+    const committedFile = path.join(dir, 'committed');
+    const currentFile = path.join(dir, 'current');
+    await Promise.all([fs.promises.writeFile(committedFile, committed), fs.promises.writeFile(currentFile, content)]);
+    // Run in the repository, so its diff settings apply as they do to committed lines.
+    const output = await runGit(
+      ['diff', '--no-index', '--no-color', '--no-ext-diff', '--', committedFile, currentFile],
+      { cwd: repoRoot, successExitCodes: [1] },
+    );
+    return extractHunkForLine(output, line + 1);
+  } catch (err) {
+    if (err instanceof GitCliError) {
+      return undefined;
+    }
+    throw err;
+  } finally {
+    await fs.promises.rm(dir, { recursive: true, force: true });
   }
 }
 
