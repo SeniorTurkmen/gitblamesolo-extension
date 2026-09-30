@@ -154,6 +154,11 @@
           "default": true,
           "description": "Tint the file blame column by how recent each line's commit is, from blue for the oldest commits in the file to orange for the newest."
         },
+        "gitBlameSolo.highlightCommitLines": {
+          "type": "boolean",
+          "default": false,
+          "description": "Highlight the other lines of the file that the current line's commit last changed, with marks in the scroll bar. Change the colors with the gitBlameSolo.commitLinesBackground and gitBlameSolo.commitLinesOverviewRuler theme colors."
+        },
         "gitBlameSolo.editorTitleButtons": {
           "type": "boolean",
           "default": true,
@@ -204,6 +209,10 @@
         "command": "gitBlameSolo.showFileHistory",
         "title": "Git Blame Solo: Show File History",
         "icon": "$(history)"
+      },
+      {
+        "command": "gitBlameSolo.showAuthorHistory",
+        "title": "Git Blame Solo: Show Author History"
       },
       {
         "command": "gitBlameSolo.showLineHistory",
@@ -283,7 +292,29 @@
           "group": "9_gitBlameSolo"
         }
       ]
-    }
+    },
+    "colors": [
+      {
+        "id": "gitBlameSolo.commitLinesBackground",
+        "description": "Background of the lines from the current line's commit, when gitBlameSolo.highlightCommitLines is on.",
+        "defaults": {
+          "dark": "#3794ff1a",
+          "light": "#0066cc14",
+          "highContrast": "#3794ff33",
+          "highContrastLight": "#0066cc26"
+        }
+      },
+      {
+        "id": "gitBlameSolo.commitLinesOverviewRuler",
+        "description": "Scroll bar marks for the lines from the current line's commit, when gitBlameSolo.highlightCommitLines is on.",
+        "defaults": {
+          "dark": "#3794ffb3",
+          "light": "#0066ccb3",
+          "highContrast": "#3794ff",
+          "highContrastLight": "#0066cc"
+        }
+      }
+    ]
   },
   "scripts": {
     "compile": "node esbuild.js",

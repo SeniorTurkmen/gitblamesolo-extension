@@ -90,3 +90,8 @@ export async function showFileHistory(arg?: unknown): Promise<void> {
   };
   HistoryPanel.show(target.repoRoot, filter, settings);
 }
+
+/** Opens the git log of every branch, filtered to one author's commits. */
+export function showAuthorHistory(repoRoot: string, author: string): void {
+  HistoryPanel.show(repoRoot, { scope: { kind: 'all' }, author }, settings);
+}

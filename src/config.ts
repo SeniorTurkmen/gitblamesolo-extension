@@ -24,6 +24,7 @@ export interface GitBlameSoloConfig {
   fileBlameEnabled: boolean;
   fileBlameTemplate: string;
   fileBlameHeatmap: boolean;
+  highlightCommitLines: boolean;
 }
 
 export function getConfig(): GitBlameSoloConfig {
@@ -53,6 +54,7 @@ export function getConfig(): GitBlameSoloConfig {
     fileBlameEnabled: cfg.get<boolean>('fileBlame.enabled', false),
     fileBlameTemplate: cfg.get<string>('fileBlame.template', '${author}, ${date}'),
     fileBlameHeatmap: cfg.get<boolean>('fileBlame.heatmap', true),
+    highlightCommitLines: cfg.get<boolean>('highlightCommitLines', false),
   };
 }
 

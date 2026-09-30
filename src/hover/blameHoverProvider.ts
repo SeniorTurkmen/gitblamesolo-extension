@@ -57,6 +57,14 @@ function buildLineHistoryCommandUri(sha: string, repoRoot: string, relativePath:
   return `command:gitBlameSolo.showLineHistory?${args}`;
 }
 
+/** The author as a link that opens the git log filtered to their commits. */
+function authorLink(name: string, email: string, showEmail: boolean, repoRoot: string): string {
+  const args = encodeURIComponent(JSON.stringify([repoRoot, email || name]));
+  const label = escapeAngleBrackets(formatAuthor(name, email, showEmail)).replace(/[[\]\\]/g, '\\$&');
+  const tooltip = `Show every commit by ${name}`.replace(/"/g, "'");
+  return `[${label}](command:gitBlameSolo.showAuthorHistory?${args} "${tooltip}")`;
+}
+
 /** The short SHA with a button that copies the full one. */
 function appendSha(md: vscode.MarkdownString, sha: string): void {
   const copyUri = `command:gitBlameSolo.copyCommitHash?${encodeURIComponent(JSON.stringify([sha]))}`;
@@ -78,6 +86,7 @@ function newMarkdown(): vscode.MarkdownString {
       'gitBlameSolo.copyCommitHash',
       'gitBlameSolo.blamePreviousRevision',
       'gitBlameSolo.showLineHistory',
+      'gitBlameSolo.showAuthorHistory',
     ],
   };
   return md;
@@ -201,7 +210,7 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       const md = newMarkdown();
       md.appendMarkdown(`$(git-commit) **${blame.summary}**\n\n`);
       md.appendMarkdown(
-        `$(account) ${escapeAngleBrackets(formatAuthor(blame.authorName, blame.authorEmail, config.showAuthorEmail))} &nbsp;&nbsp; $(clock) ${formatDate(blame.authorTimestamp, 'absolute')}\n\n`,
+        `$(account) ${authorLink(blame.authorName, blame.authorEmail, config.showAuthorEmail, repoRoot)} &nbsp;&nbsp; $(clock) ${formatDate(blame.authorTimestamp, 'absolute')}\n\n`,
       );
       appendSha(md, blame.sha);
       this.appendDiff(md, diffHunk, blame.sha, repoRoot, blame.filename, blame.previous?.filename, blame.originalLine);
@@ -211,7 +220,7 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     const md = newMarkdown();
     md.appendMarkdown(`$(git-commit) **${commit.summary}**\n\n`);
     md.appendMarkdown(
-      `$(account) ${escapeAngleBrackets(formatAuthor(commit.authorName, commit.authorEmail, config.showAuthorEmail))} &nbsp;&nbsp; $(clock) ${formatDate(commit.authorTimestamp, 'absolute')}\n\n`,
+      `$(account) ${authorLink(commit.authorName, commit.authorEmail, config.showAuthorEmail, repoRoot)} &nbsp;&nbsp; $(clock) ${formatDate(commit.authorTimestamp, 'absolute')}\n\n`,
     );
     if (commit.coAuthors.length > 0) {
       const names = commit.coAuthors.map((p) => formatAuthor(p.name, p.email, config.showAuthorEmail)).join(', ');
