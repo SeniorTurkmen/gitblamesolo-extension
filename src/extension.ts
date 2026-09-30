@@ -538,6 +538,16 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push(
+    vscode.commands.registerCommand('gitBlameSolo.showUncommittedChange', async (uri: string, line: number) => {
+      const editor = await vscode.window.showTextDocument(vscode.Uri.parse(uri));
+      const position = new vscode.Position(line, 0);
+      editor.selection = new vscode.Selection(position, position);
+      // VS Code's peek of a line's local change opens at the change holding the cursor.
+      await vscode.commands.executeCommand('editor.action.dirtydiff.next');
+    }),
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand('gitBlameSolo.copyCommitMessage', async (shaArg?: string, repoRootArg?: string) => {
       let sha = shaArg;
       let repoRoot = repoRootArg;

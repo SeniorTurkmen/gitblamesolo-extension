@@ -81,7 +81,8 @@ describe('file blame', () => {
     try {
       const text = await hoverText(1, 3);
       assert.ok(text.includes('What changed'), text);
-      assert.ok(text.includes('-second line\n+changed line'), text);
+      assert.ok(text.includes('$(diff-added) 1 &nbsp; $(diff-removed) 1'), text);
+      assert.ok(text.includes('command:gitBlameSolo.showUncommittedChange'), text);
     } finally {
       await vscode.commands.executeCommand('workbench.action.files.revert');
     }

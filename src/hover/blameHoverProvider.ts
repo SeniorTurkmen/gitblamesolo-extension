@@ -11,7 +11,7 @@ import { getCommitLink, pullRequestLabel } from '../git/gitRemote';
 import { UnpushedCache } from '../git/gitUnpushed';
 import { formatAuthor } from '../util/authorFormat';
 import { formatDate } from '../util/dateFormat';
-import { countDiffStats, parseDiffHunkLines } from '../util/diffRender';
+import { countDiffStats, DiffRenderLine, parseDiffHunkLines } from '../util/diffRender';
 import { emojify } from '../util/emoji';
 
 function buildShowDetailsCommandUri(
@@ -68,12 +68,8 @@ function authorLink(name: string, email: string, showEmail: boolean, repoRoot: s
 }
 
 /** The short SHA with a button that copies the full one. */
-/** The "What changed" section: a hunk with its added and removed line counts, then `link`. */
-function appendDiffBlock(md: vscode.MarkdownString, diffHunk: string | undefined, link: string): void {
-  const lines = diffHunk ? parseDiffHunkLines(diffHunk) : [];
-  if (!diffHunk || lines.length === 0) {
-    return;
-  }
+/** The added and removed line counts that follow "What changed". */
+function formatDiffStats(lines: DiffRenderLine[]): string {
   const { added, removed } = countDiffStats(lines);
   const stats = [
     added > 0 ? `$(diff-added) ${added}` : undefined,
@@ -81,8 +77,17 @@ function appendDiffBlock(md: vscode.MarkdownString, diffHunk: string | undefined
   ]
     .filter(Boolean)
     .join(' &nbsp; ');
+  return stats ? ` &nbsp; ${stats}` : '';
+}
+
+/** The "What changed" section: a hunk with its added and removed line counts, then `link`. */
+function appendDiffBlock(md: vscode.MarkdownString, diffHunk: string | undefined, link: string): void {
+  const lines = diffHunk ? parseDiffHunkLines(diffHunk) : [];
+  if (!diffHunk || lines.length === 0) {
+    return;
+  }
   md.appendMarkdown('\n\n---\n\n');
-  md.appendMarkdown(`$(diff) **What changed**${stats ? ` &nbsp; ${stats}` : ''}\n`);
+  md.appendMarkdown(`$(diff) **What changed**${formatDiffStats(lines)}\n`);
   md.appendCodeblock(diffHunk, 'diff');
   md.appendMarkdown(`\n${link}`);
 }
@@ -113,6 +118,7 @@ function newMarkdown(): vscode.MarkdownString {
       'gitBlameSolo.copyCommitHash',
       'gitBlameSolo.copyCommitMessage',
       'gitBlameSolo.compareWithRevision',
+      'gitBlameSolo.showUncommittedChange',
       'gitBlameSolo.blamePreviousRevision',
       'gitBlameSolo.showLineHistory',
       'gitBlameSolo.showAuthorHistory',
@@ -212,10 +218,22 @@ export class BlameHoverProvider implements vscode.HoverProvider {
       if (token.isCancellationRequested) {
         return undefined;
       }
-      const compareUri = `command:gitBlameSolo.compareWithRevision?${encodeURIComponent(
-        JSON.stringify([repoRoot, 'HEAD', target.relativePath, target.relativePath]),
-      )}`;
-      appendDiffBlock(md, diffHunk, `[$(link-external) Open in Diff Editor](${compareUri} "Compare the file with its last commit")`);
+      const diffLines = diffHunk ? parseDiffHunkLines(diffHunk) : [];
+      if (diffLines.length > 0) {
+        // VS Code's own change peek shows the block inline in the editor, which reads better than a code block here.
+        const peekUri = `command:gitBlameSolo.showUncommittedChange?${encodeURIComponent(
+          JSON.stringify([document.uri.toString(), line]),
+        )}`;
+        const compareUri = `command:gitBlameSolo.compareWithRevision?${encodeURIComponent(
+          JSON.stringify([repoRoot, 'HEAD', target.relativePath, target.relativePath]),
+        )}`;
+        md.appendMarkdown('\n\n---\n\n');
+        md.appendMarkdown(`$(diff) **What changed**${formatDiffStats(diffLines)}\n\n`);
+        md.appendMarkdown(
+          `[$(eye) Show change inline](${peekUri} "Show this change in the editor, next to the committed lines") &nbsp;&nbsp; ` +
+            `[$(link-external) Open in Diff Editor](${compareUri} "Compare the file with its last commit")`,
+        );
+      }
       return new vscode.Hover(md, range);
     }
 
