@@ -1,8 +1,8 @@
 {
   "name": "gitblamesolo",
   "displayName": "Git Blame Solo",
-  "description": "Shows who changed the current line, when, and with which commit — inline and on hover.",
-  "version": "0.1.2",
+  "description": "Shows who changed the current line, when, and with which commit, inline and on hover, plus a git log with a branch graph and file history.",
+  "version": "0.2.0",
   "publisher": "SeniorTurkmen",
   "license": "MIT",
   "private": true,
@@ -24,7 +24,9 @@
     "blame",
     "history",
     "diff",
-    "commit"
+    "commit",
+    "log",
+    "graph"
   ],
   "activationEvents": [
     "workspaceContains:.git",
