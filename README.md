@@ -249,9 +249,9 @@ It is published to the Visual Studio Marketplace and to Open VSX.
 
 ## Settings
 
-Every setting below can also be changed from the Command Palette with **Git Blame Solo: Change Setting…**, or in the Settings editor by searching for `gitBlameSolo`:
+Every setting below can also be changed from the Command Palette with **Git Blame Solo: Change Setting…**. It lists each setting with its current value; pick one to toggle it, choose from its values, or type a new one. The change applies right away:
 
-![The Settings editor filtered to Git Blame Solo's settings](docs/images/settings.gif)
+![Git Blame Solo: Change Setting… lists every setting with its current value; switching Date Style from relative to absolute updates the inline annotation at once](docs/images/change-setting.gif)
 
 | Setting | Default | Description |
 | --- | --- | --- |
