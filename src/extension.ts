@@ -563,6 +563,7 @@ export function activate(context: vscode.ExtensionContext): void {
           hunk,
           focusNewLine: line + 1,
           description: `${sha.slice(0, 7)} ${emojify(commit?.summary ?? '')}`.trim(),
+          footer: `${sha.slice(0, 7)}  ${emojify(commit?.summary ?? '')}`.trimEnd(),
           fileName: path.posix.basename(relativePath),
           languageId: editor.document.languageId,
         });

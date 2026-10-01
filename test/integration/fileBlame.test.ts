@@ -100,7 +100,7 @@ describe('file blame', () => {
       peek,
       `docs: ${vscode.workspace.textDocuments.map((d) => d.uri.toString()).join(', ')}; editors: ${vscode.window.visibleTextEditors.map((e) => e.document.uri.toString()).join(', ')}`,
     );
-    assert.strictEqual(peek.document.getText(), 'first line\nsecond line');
+    assert.strictEqual(peek.document.getText(), `first line\nsecond line\n\n${sha.slice(0, 7)}  Add the file blame fixture`);
     assert.strictEqual(peek.document.languageId, 'plaintext');
     await vscode.commands.executeCommand('closeReferenceSearch');
   });

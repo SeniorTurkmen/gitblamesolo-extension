@@ -114,7 +114,7 @@ By default the popup only opens over the annotation, so hovering your code for o
 
 ![Hover popup with commit details and the changed block](docs/images/hover.png)
 
-**Show change inline** opens the same block right under the line, in a peek like VS Code's own for local changes: removed lines on red and added lines on green, with their line numbers before and after the commit, highlighted as the file's language.
+**Show change inline** opens the same block right under the line, in a peek like VS Code's own for local changes: removed lines on red and added lines on green, with their line numbers before and after the commit, highlighted as the file's language. The commit's hash and subject head the list beside the block and sit under it.
 
 ![A commit's change shown inline under the line, with removed and added lines and their old and new line numbers](docs/images/change-peek.png)
 
