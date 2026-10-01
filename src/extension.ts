@@ -549,7 +549,8 @@ export function activate(context: vscode.ExtensionContext): void {
    */
   async function lineHistoryBlocks(sha: string, repoRoot: string, relativePath: string, line: number): Promise<ChangePeekBlock[]> {
     const history = (await getLineHistory({ sha, repoRoot, relativePath, line, maxCount: LINE_HISTORY_PEEK_COUNT })) ?? [];
-    const commits = history.length > 0 ? history : [{ sha, path: relativePath, line }];
+    const commits: { sha: string; path: string; oldPath?: string; line: number }[] =
+      history.length > 0 ? history : [{ sha, path: relativePath, line }];
     const blocks: (ChangePeekBlock | undefined)[] = [];
     // A few at a time, as each block runs git twice.
     for (let start = 0; start < commits.length; start += 4) {
@@ -570,6 +571,8 @@ export function activate(context: vscode.ExtensionContext): void {
               focusNewLine: entry.line + 1,
               title: `${entry.sha.slice(0, 7)} ${emojify(commit?.summary ?? '')}`,
               description: commit ? `${commit.authorName}, ${formatDate(commit.authorTimestamp, 'relative')}` : '',
+              open: () =>
+                vscode.commands.executeCommand('gitBlameSolo.openDiff', entry.sha, repoRoot, entry.path, entry.oldPath, entry.line),
             };
           }),
         )),

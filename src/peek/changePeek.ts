@@ -17,6 +17,8 @@ export interface ChangePeekBlock {
   title: string;
   /** Shown after the title, such as the commit's author and date. */
   description: string;
+  /** Runs instead of opening the block in an editor, as double-clicking it in the peek would, such as to open its diff. */
+  open?: () => unknown;
 }
 
 export interface ChangePeekRequest {
@@ -44,6 +46,7 @@ function pathSegment(text: string): string {
 export class ChangePeek implements vscode.TextDocumentContentProvider, vscode.Disposable {
   /** Keyed by the document's authority, which is unique to its block and, unlike its path, never re-encoded. */
   private readonly blocks = new Map<string, PeekLine[]>();
+  private readonly openers = new Map<string, () => unknown>();
   private readonly disposables: vscode.Disposable[] = [];
   private readonly added = vscode.window.createTextEditorDecorationType({
     isWholeLine: true,
@@ -63,6 +66,8 @@ export class ChangePeek implements vscode.TextDocumentContentProvider, vscode.Di
       vscode.workspace.registerTextDocumentContentProvider(CHANGE_PEEK_SCHEME, this),
       // The peek's editor shows up among the visible editors when it opens and whenever it switches to another block.
       vscode.window.onDidChangeVisibleTextEditors((editors) => editors.forEach((editor) => this.decorate(editor))),
+      // Double-clicking a block, or its entry in the list, opens its document in an editor tab: swap that tab for the block's own action.
+      vscode.window.tabGroups.onDidChangeTabs(({ opened, changed }) => [...opened, ...changed].forEach((tab) => this.reopen(tab))),
       this.added,
       this.removed,
       this.gutter,
@@ -72,6 +77,7 @@ export class ChangePeek implements vscode.TextDocumentContentProvider, vscode.Di
   dispose(): void {
     this.disposables.forEach((d) => d.dispose());
     this.blocks.clear();
+    this.openers.clear();
   }
 
   provideTextDocumentContent(uri: vscode.Uri): string {
@@ -82,6 +88,7 @@ export class ChangePeek implements vscode.TextDocumentContentProvider, vscode.Di
     // Only one peek is open at a time. Its documents can't be dropped when they close, as setting their language
     // closes and reopens them, so the previous peek's go when the next opens.
     this.blocks.clear();
+    this.openers.clear();
     const peek = this.next++;
     const locations: vscode.Location[] = [];
     for (const [index, block] of request.blocks.entries()) {
@@ -97,6 +104,9 @@ export class ChangePeek implements vscode.TextDocumentContentProvider, vscode.Di
         path: `/${pathSegment(block.description)}/${pathSegment(block.title)}`,
       });
       this.blocks.set(this.key(uri), lines);
+      if (block.open) {
+        this.openers.set(this.key(uri), block.open);
+      }
       const document = await vscode.workspace.openTextDocument(uri);
       try {
         await vscode.languages.setTextDocumentLanguage(document, request.languageId);
@@ -120,6 +130,17 @@ export class ChangePeek implements vscode.TextDocumentContentProvider, vscode.Di
       'peek',
     );
     vscode.window.visibleTextEditors.forEach((editor) => this.decorate(editor));
+  }
+
+  private reopen(tab: vscode.Tab): void {
+    if (!(tab.input instanceof vscode.TabInputText)) {
+      return;
+    }
+    const open = this.openers.get(this.key(tab.input.uri));
+    if (!open) {
+      return;
+    }
+    void vscode.window.tabGroups.close(tab).then(() => open());
   }
 
   private key(uri: vscode.Uri): string {

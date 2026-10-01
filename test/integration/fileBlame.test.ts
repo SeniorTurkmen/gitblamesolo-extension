@@ -106,6 +106,19 @@ describe('file blame', () => {
     assert.strictEqual(newest.languageId, 'plaintext');
     assert.ok(oldest.uri.path.endsWith(' Add the file blame fixture'), titles.join(', '));
     assert.strictEqual(oldest.getText(), 'first line\nsecond line');
+
+    // Double-clicking a block opens its document in an editor, which opens the commit's diff in its place.
+    await vscode.window.showTextDocument(oldest.uri);
+    const tabs = () => vscode.window.tabGroups.all.flatMap((group) => group.tabs);
+    let diff: vscode.Tab | undefined;
+    for (let attempt = 0; attempt < 50 && !diff; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      diff = tabs().find((tab) => tab.input instanceof vscode.TabInputTextDiff);
+    }
+    assert.ok(diff, tabs().map((tab) => tab.label).join(', '));
+    const firstSha = execFileSync('git', ['rev-parse', '--short=7', 'HEAD~1'], { cwd: repoRoot, encoding: 'utf8' }).trim();
+    assert.ok(diff.label.includes(`${firstSha}^ ↔ ${firstSha}`), diff.label);
+    assert.ok(!tabs().some((tab) => tab.input instanceof vscode.TabInputText && tab.input.uri.scheme === 'gitBlameSoloChange'));
     await vscode.commands.executeCommand('closeReferenceSearch');
   });
 });

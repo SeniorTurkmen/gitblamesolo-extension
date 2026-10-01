@@ -114,7 +114,7 @@ By default the popup only opens over the annotation, so hovering your code for o
 
 ![Hover popup with commit details and the changed block](docs/images/hover.png)
 
-**Show change inline** opens the same block right under the line, in a peek like VS Code's own for local changes: removed lines on red and added lines on green, with their line numbers before and after the commit, highlighted as the file's language. The list beside it holds the line's history, newest first: each commit that changed the line, with its author and date. Pick one to see its change to the line in the same place.
+**Show change inline** opens the same block right under the line, in a peek like VS Code's own for local changes: removed lines on red and added lines on green, with their line numbers before and after the commit, highlighted as the file's language. The list beside it holds the line's history, newest first: each commit that changed the line, with its author and date. Pick one to see its change to the line in the same place, or double-click a change to open that commit's diff of the file.
 
 ![A commit's change shown inline under the line, with removed and added lines, their old and new line numbers, and the line's history beside it](docs/images/change-peek.png)
 
