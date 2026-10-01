@@ -15,20 +15,26 @@ import { FileBlameDecorator } from './decorations/fileBlameDecorator';
 import { blameTarget, resolveBlameTarget } from './git/blameTarget';
 import { GitCliError, runGit } from './git/gitCli';
 import { getCommitDiff } from './git/gitCommitDiff';
-import { getParentLine } from './git/gitDiff';
-import { getCommitDetails } from './git/gitLog';
+import { getLineDiffHunk, getParentLine } from './git/gitDiff';
+import { getLineHistory } from './git/gitLineHistory';
+import { getCommitDetails, getCommitMessage } from './git/gitLog';
 import { clearRemoteCaches, getCommitLink } from './git/gitRemote';
 import { invalidateRepositoryCache } from './git/gitRepository';
 import { RepositoryWatcher } from './git/repositoryWatcher';
+import { UnpushedCache } from './git/gitUnpushed';
 import { buildGitShowUri, GIT_SHOW_SCHEME, GitShowContentProvider } from './git/gitShowContentProvider';
 import { BlameHoverProvider } from './hover/blameHoverProvider';
 import { BlameInfo } from './types';
-import { configureDates, resolveDateLocale } from './util/dateFormat';
+import { configureDates, formatDate, resolveDateLocale } from './util/dateFormat';
+import { configureEmoji, emojify } from './util/emoji';
 import { detectSystemLocale } from './util/systemLocale';
+import { ChangePeek, ChangePeekBlock } from './peek/changePeek';
 import { CommitDetailsPanel } from './webview/commitDetailsPanel';
 
 /** How long typing must pause before an edited document is blamed again with its unsaved text. */
 const REBLAME_DELAY_MS = 1000;
+/** How many commits of a line's history the change peek lists. */
+const LINE_HISTORY_PEEK_COUNT = 20;
 
 async function warnIfGitMissing(): Promise<void> {
   try {
@@ -45,23 +51,25 @@ async function warnIfGitMissing(): Promise<void> {
 /** The operating system's locale, once it's known; until then, the extension host's default. */
 let systemLocale = Intl.DateTimeFormat().resolvedOptions().locale;
 
-/** Applies the date settings, which every date formatted from then on uses. */
-function applyDateSettings(): void {
-  const { dateLocale, dateStyle } = getConfig();
+/** Applies the date and emoji settings, which every date and message shown from then on uses. */
+function applyDisplaySettings(): void {
+  const { dateLocale, dateStyle, renderEmoji } = getConfig();
   configureDates(resolveDateLocale(dateLocale, vscode.env.language, systemLocale), dateStyle === 'iso');
+  configureEmoji(renderEmoji);
 }
 
 export function activate(context: vscode.ExtensionContext): void {
-  applyDateSettings();
+  applyDisplaySettings();
   void detectSystemLocale().then((locale) => {
     systemLocale = locale;
-    applyDateSettings();
+    applyDisplaySettings();
     redraw();
   });
   void warnIfGitMissing();
 
   const blameCache = new BlameCache();
   const commitCache = new CommitCache();
+  const unpushedCache = new UnpushedCache();
   const commitDiffCache = new CommitDiffCache();
   const lineDiffCache = new LineDiffCache();
   const decorator = new CurrentLineBlameDecorator({ blameCache, getConfig });
@@ -144,12 +152,12 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.languages.registerHoverProvider(
       [{ scheme: 'file' }, { scheme: GIT_SHOW_SCHEME }],
-      new BlameHoverProvider({ blameCache, commitCache, lineDiffCache, getConfig }),
+      new BlameHoverProvider({ blameCache, commitCache, lineDiffCache, unpushedCache, getConfig }),
     ),
   );
   context.subscriptions.push(
     onConfigChanged((e) => {
-      applyDateSettings();
+      applyDisplaySettings();
       const blameSettings = ['ignoreWhitespace', 'detectMovedLines', 'ignoreRevsFile'];
       if (blameSettings.some((key) => e.affectsConfiguration(`gitBlameSolo.${key}`))) {
         blameCache.clear();
@@ -162,6 +170,7 @@ export function activate(context: vscode.ExtensionContext): void {
     invalidateRepositoryCache();
     clearRemoteCaches();
     blameCache.clear();
+    unpushedCache.clear();
     redraw();
   }
 
@@ -171,6 +180,7 @@ export function activate(context: vscode.ExtensionContext): void {
         blameCache.clear();
         redraw();
       },
+      onStateChanged: () => unpushedCache.clear(),
       onRepositoriesChanged: resetCaches,
       onConfigChanged: () => {
         clearRemoteCaches();
@@ -528,6 +538,95 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       await vscode.env.clipboard.writeText(sha);
       void vscode.window.setStatusBarMessage(`$(check) Copied ${sha.slice(0, 7)} to clipboard`, 3000);
+    }),
+  );
+
+  const changePeek = new ChangePeek();
+
+  /**
+   * The changes of every commit in a line's history, newest first, starting at `sha`; just that commit's when
+   * the history can't be read. Each is the changed block holding the line, as the hover shows it.
+   */
+  async function lineHistoryBlocks(sha: string, repoRoot: string, relativePath: string, line: number): Promise<ChangePeekBlock[]> {
+    const history = (await getLineHistory({ sha, repoRoot, relativePath, line, maxCount: LINE_HISTORY_PEEK_COUNT })) ?? [];
+    const commits: { sha: string; path: string; oldPath?: string; line: number }[] =
+      history.length > 0 ? history : [{ sha, path: relativePath, line }];
+    const blocks: (ChangePeekBlock | undefined)[] = [];
+    // A few at a time, as each block runs git twice.
+    for (let start = 0; start < commits.length; start += 4) {
+      blocks.push(
+        ...(await Promise.all(
+          commits.slice(start, start + 4).map(async (entry) => {
+            const [hunk, commit] = await Promise.all([
+              lineDiffCache.getOrCompute(entry.sha, `${entry.path}#${entry.line}`, () =>
+                getLineDiffHunk({ sha: entry.sha, relativePath: entry.path, line: entry.line, repoRoot }),
+              ),
+              commitCache.getOrCompute(entry.sha, () => getCommitDetails(entry.sha, repoRoot)),
+            ]);
+            if (!hunk) {
+              return undefined;
+            }
+            return {
+              hunk,
+              focusNewLine: entry.line + 1,
+              title: `${entry.sha.slice(0, 7)} ${emojify(commit?.summary ?? '')}`,
+              description: commit ? `${commit.authorName}, ${formatDate(commit.authorTimestamp, 'relative')}` : '',
+              open: () =>
+                vscode.commands.executeCommand('gitBlameSolo.openDiff', entry.sha, repoRoot, entry.path, entry.oldPath, entry.line),
+            };
+          }),
+        )),
+      );
+    }
+    return blocks.filter((block): block is ChangePeekBlock => block !== undefined);
+  }
+  context.subscriptions.push(
+    changePeek,
+    vscode.commands.registerCommand(
+      'gitBlameSolo.showCommitChange',
+      async (sha: string, repoRoot: string, relativePath: string, line: number, sourceUri: string, sourceLine: number) => {
+        const uri = vscode.Uri.parse(sourceUri);
+        const editor = await vscode.window.showTextDocument(uri);
+        const position = new vscode.Position(sourceLine, 0);
+        editor.selection = new vscode.Selection(position, position);
+        const blocks = await vscode.window.withProgress(
+          { location: vscode.ProgressLocation.Window, title: 'Git Blame Solo: reading the line history' },
+          () => lineHistoryBlocks(sha, repoRoot, relativePath, line),
+        );
+        await changePeek.show({ sourceUri: uri, sourceLine, blocks, languageId: editor.document.languageId });
+      },
+    ),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('gitBlameSolo.showUncommittedChange', async (uri: string, line: number) => {
+      const editor = await vscode.window.showTextDocument(vscode.Uri.parse(uri));
+      const position = new vscode.Position(line, 0);
+      editor.selection = new vscode.Selection(position, position);
+      // VS Code's peek of a line's local change opens at the change holding the cursor.
+      await vscode.commands.executeCommand('editor.action.dirtydiff.next');
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('gitBlameSolo.copyCommitMessage', async (shaArg?: string, repoRootArg?: string) => {
+      let sha = shaArg;
+      let repoRoot = repoRootArg;
+      if (!sha || !repoRoot) {
+        const target = await blameAtCursor();
+        if (!target) {
+          return;
+        }
+        sha = target.blame.sha;
+        repoRoot = target.repoRoot;
+      }
+      const message = await getCommitMessage(sha, repoRoot);
+      if (message === undefined) {
+        void vscode.window.showErrorMessage(`Git Blame Solo: could not read the message of commit ${sha.slice(0, 7)}.`);
+        return;
+      }
+      await vscode.env.clipboard.writeText(message);
+      void vscode.window.setStatusBarMessage(`$(check) Copied the message of ${sha.slice(0, 7)} to clipboard`, 3000);
     }),
   );
 

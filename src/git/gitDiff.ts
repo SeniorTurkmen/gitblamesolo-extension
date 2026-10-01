@@ -1,7 +1,8 @@
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { changeBlockForLine, splitLines } from '../util/changeBlock';
 import { GitCliError, runGit } from './gitCli';
-
-const MAX_HUNK_LINES = 30;
-const HUNK_HEADER_RE = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/;
 
 export interface LineDiffOptions {
   sha: string;
@@ -13,19 +14,21 @@ export interface LineDiffOptions {
   signal?: AbortSignal;
 }
 
-interface HunkHeader {
-  newStart: number;
-  newCount: number;
-  lineIndex: number;
-}
-
+/**
+ * The block of lines a commit changed that holds its 0-based `line`, with the
+ * lines around it, from the commit's own version of the file.
+ */
 export async function getLineDiffHunk(options: LineDiffOptions): Promise<string | undefined> {
+  const { sha, relativePath, repoRoot, signal } = options;
   try {
-    const output = await runGit(['show', '--format=', '--no-color', options.sha, '--', options.relativePath], {
-      cwd: options.repoRoot,
-      signal: options.signal,
-    });
-    return extractHunkForLine(output, options.line + 1);
+    const [diff, content] = await Promise.all([
+      runGit(['show', '--format=', '--no-color', '--no-ext-diff', '-U0', sha, '--', relativePath], {
+        cwd: repoRoot,
+        signal,
+      }),
+      runGit(['show', `${sha}:${relativePath}`], { cwd: repoRoot, signal }),
+    ]);
+    return changeBlockForLine(diff, splitLines(content), options.line + 1);
   } catch (err) {
     if (err instanceof GitCliError) {
       return undefined;
@@ -35,53 +38,45 @@ export async function getLineDiffHunk(options: LineDiffOptions): Promise<string 
 }
 
 /**
- * A commit's diff is a sequence of hunks; we want the whole contiguous
- * block that contains our target line, not just that one line, so a
- * "this block was replaced with that block" change reads naturally.
+ * The block of uncommitted changes holding the 0-based `line` of `content`,
+ * the file's current text, unsaved edits included, compared with its last
+ * commit. Git computes the diff, from temporary copies of both, so changes
+ * line up exactly as they do for committed lines.
  */
-function extractHunkForLine(diffText: string, targetLine: number): string | undefined {
-  const lines = diffText.split('\n');
-  const headers: HunkHeader[] = [];
-
-  lines.forEach((line, index) => {
-    const match = HUNK_HEADER_RE.exec(line);
-    if (match) {
-      headers.push({
-        newStart: parseInt(match[1], 10),
-        newCount: match[2] !== undefined ? parseInt(match[2], 10) : 1,
-        lineIndex: index,
-      });
+export async function getUncommittedHunk(
+  repoRoot: string,
+  relativePath: string,
+  content: string,
+  line: number,
+): Promise<string | undefined> {
+  let committed = '';
+  try {
+    committed = await runGit(['show', `HEAD:${relativePath}`], { cwd: repoRoot });
+  } catch (err) {
+    // A file new since the last commit, or a repository without commits: every line is added.
+    if (!(err instanceof GitCliError)) {
+      throw err;
     }
-  });
-
-  const matching = headers.find(
-    (h) => targetLine >= h.newStart && targetLine < h.newStart + Math.max(h.newCount, 1),
-  );
-  if (!matching) {
-    return undefined;
   }
-
-  const nextHeader = headers.find((h) => h.lineIndex > matching.lineIndex);
-  const endIndex = nextHeader ? nextHeader.lineIndex : lines.length;
-  const hunkLines = trimTrailingEmpty(lines.slice(matching.lineIndex, endIndex));
-  if (hunkLines.length === 0) {
-    return undefined;
+  const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'gitblamesolo-diff-'));
+  try {
+    const committedFile = path.join(dir, 'committed');
+    const currentFile = path.join(dir, 'current');
+    await Promise.all([fs.promises.writeFile(committedFile, committed), fs.promises.writeFile(currentFile, content)]);
+    // Run in the repository, so its diff settings apply as they do to committed lines.
+    const output = await runGit(
+      ['diff', '--no-index', '--no-color', '--no-ext-diff', '-U0', '--', committedFile, currentFile],
+      { cwd: repoRoot, successExitCodes: [1] },
+    );
+    return changeBlockForLine(output, splitLines(content), line + 1);
+  } catch (err) {
+    if (err instanceof GitCliError) {
+      return undefined;
+    }
+    throw err;
+  } finally {
+    await fs.promises.rm(dir, { recursive: true, force: true });
   }
-
-  if (hunkLines.length > MAX_HUNK_LINES) {
-    const truncated = hunkLines.slice(0, MAX_HUNK_LINES);
-    truncated.push(`… (${hunkLines.length - MAX_HUNK_LINES} more lines)`);
-    return truncated.join('\n');
-  }
-  return hunkLines.join('\n');
-}
-
-function trimTrailingEmpty(lines: string[]): string[] {
-  const copy = [...lines];
-  while (copy.length && copy[copy.length - 1].trim() === '') {
-    copy.pop();
-  }
-  return copy;
 }
 
 const ZERO_CONTEXT_HUNK_RE = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/;

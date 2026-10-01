@@ -43,6 +43,7 @@ describe('file blame', () => {
 
   after(async () => {
     await settings().update('fileBlame.enabled', undefined, vscode.ConfigurationTarget.Global);
+    await settings().update('hover.trigger', undefined, vscode.ConfigurationTarget.Global);
     await vscode.commands.executeCommand('workbench.action.closeAllEditors');
     try {
       removeRepo(repoRoot);
@@ -71,5 +72,53 @@ describe('file blame', () => {
     await vscode.commands.executeCommand('gitBlameSolo.toggleFileBlame');
     assert.strictEqual(settings().get('fileBlame.enabled'), false);
     assert.ok(!(await hoverText(1, 0)).includes('Add the file blame fixture'));
+  });
+
+  it('shows what changed on an uncommitted line, unsaved edits included', async () => {
+    await settings().update('hover.trigger', 'line', vscode.ConfigurationTarget.Global);
+    const editor = vscode.window.activeTextEditor!;
+    await editor.edit((edit) => edit.replace(new vscode.Range(1, 0, 1, 'second line'.length), 'changed line'));
+    try {
+      const text = await hoverText(1, 3);
+      assert.ok(text.includes('What changed'), text);
+      assert.ok(text.includes('$(diff-added) 1 &nbsp; $(diff-removed) 1'), text);
+      assert.ok(text.includes('command:gitBlameSolo.showUncommittedChange'), text);
+    } finally {
+      await vscode.commands.executeCommand('workbench.action.files.revert');
+    }
+  });
+
+  it('shows a line\'s history inline, under the line, a change per commit', async () => {
+    const editor = vscode.window.activeTextEditor!;
+    await editor.edit((edit) => edit.replace(new vscode.Range(1, 0, 1, 'second line'.length), 'revised line'));
+    await editor.document.save();
+    execFileSync('git', ['commit', '-am', 'Revise the second line'], { cwd: repoRoot });
+    const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim();
+    await vscode.commands.executeCommand('gitBlameSolo.showCommitChange', sha, repoRoot, 'file.txt', 1, fileUri.toString(), 1);
+    // The peek's editor only shows among the visible editors while the window has focus, so check its documents.
+    const blocks = vscode.workspace.textDocuments.filter((document) => document.uri.scheme === 'gitBlameSoloChange');
+    const titles = blocks.map((document) => document.uri.path);
+    // The newest commit's change comes first, and each commit in the line's history is a document of its own.
+    assert.strictEqual(blocks.length, 2, titles.join(', '));
+    const [newest, oldest] = [...blocks].sort((a, b) => a.uri.toString().localeCompare(b.uri.toString()));
+    assert.ok(newest.uri.path.endsWith(`/${sha.slice(0, 7)} Revise the second line`), titles.join(', '));
+    assert.strictEqual(newest.getText(), 'first line\nsecond line\nrevised line');
+    assert.strictEqual(newest.languageId, 'plaintext');
+    assert.ok(oldest.uri.path.endsWith(' Add the file blame fixture'), titles.join(', '));
+    assert.strictEqual(oldest.getText(), 'first line\nsecond line');
+
+    // Double-clicking a block opens its document in an editor, which opens the commit's diff in its place.
+    await vscode.window.showTextDocument(oldest.uri);
+    const tabs = () => vscode.window.tabGroups.all.flatMap((group) => group.tabs);
+    let diff: vscode.Tab | undefined;
+    for (let attempt = 0; attempt < 50 && !diff; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      diff = tabs().find((tab) => tab.input instanceof vscode.TabInputTextDiff);
+    }
+    assert.ok(diff, tabs().map((tab) => tab.label).join(', '));
+    const firstSha = execFileSync('git', ['rev-parse', '--short=7', 'HEAD~1'], { cwd: repoRoot, encoding: 'utf8' }).trim();
+    assert.ok(diff.label.includes(`${firstSha}^ ↔ ${firstSha}`), diff.label);
+    assert.ok(!tabs().some((tab) => tab.input instanceof vscode.TabInputText && tab.input.uri.scheme === 'gitBlameSoloChange'));
+    await vscode.commands.executeCommand('closeReferenceSearch');
   });
 });

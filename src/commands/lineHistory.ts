@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { getLineHistory, LineHistoryEntry, LineHistoryOptions } from '../git/gitLineHistory';
 import { formatDate } from '../util/dateFormat';
+import { emojify } from '../util/emoji';
 
 const DETAILS_BUTTON: vscode.QuickInputButton = {
   iconPath: new vscode.ThemeIcon('files'),
@@ -70,7 +71,7 @@ export async function showLineHistory(options: LineHistoryOptions): Promise<void
     return;
   }
   picker.items = history.map((entry) => ({
-    label: entry.summary,
+    label: emojify(entry.summary),
     description: `${entry.authorName} · ${formatDate(entry.authorTimestamp, 'relative')}`,
     detail: `$(git-commit) ${entry.sha.slice(0, 7)}${entry.oldPath && entry.oldPath !== entry.path ? ` · renamed from ${entry.oldPath}` : ''}`,
     buttons: [DETAILS_BUTTON, COPY_BUTTON],

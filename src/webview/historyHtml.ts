@@ -2,6 +2,7 @@ import { BranchList, CommitRef, HistoryEntry, HistoryFilter } from '../git/gitHi
 import { DateStyle, formatDate } from '../util/dateFormat';
 import { GraphRow } from '../util/historyGraph';
 import { escapeHtml } from './html';
+import { emojify } from '../util/emoji';
 
 /** Width of one graph lane and height of one row, in pixels. */
 export const LANE_WIDTH = 14;
@@ -21,6 +22,8 @@ export interface HistoryRowOptions {
   now?: number;
   /** For a file's history: buttons that open the file at each commit or compare it with the working copy. */
   fileActions?: boolean;
+  /** Commits no remote branch contains yet, marked as not pushed. */
+  unpushed?: ReadonlySet<string>;
 }
 
 function laneX(lane: number): number {
@@ -57,6 +60,8 @@ export function renderRefs(refs: readonly CommitRef[]): string {
     .join('');
 }
 
+const UNPUSHED_BADGE = '<span class="ref ref-unpushed" title="Not pushed to any remote branch yet">not pushed</span>';
+
 /** Commit rows; `graph` holds one layout row per entry, or is undefined when the graph is hidden. */
 export function renderHistoryRows(
   entries: readonly HistoryEntry[],
@@ -74,7 +79,7 @@ export function renderHistoryRows(
       return (
         `<div class="row" data-sha="${escapeHtml(entry.sha)}"${entry.path ? ` data-path="${escapeHtml(entry.path)}"` : ''} tabindex="-1">` +
         graphCell +
-        `<span class="summary">${renderRefs(entry.refs)}<span class="text">${escapeHtml(entry.summary)}</span></span>` +
+        `<span class="summary">${renderRefs(entry.refs)}${options.unpushed?.has(entry.sha) ? UNPUSHED_BADGE : ''}<span class="text">${escapeHtml(emojify(entry.summary))}</span></span>` +
         `<span class="author" data-author="${escapeHtml(entry.authorEmail || entry.authorName)}" title="${escapeHtml(`${entry.authorName} <${entry.authorEmail}> (click to show only their commits)`)}">${escapeHtml(author)}</span>` +
         `<span class="date" title="${escapeHtml(formatDate(entry.authorTimestamp, 'absolute'))}">${escapeHtml(
           formatDate(entry.authorTimestamp, options.dateStyle, undefined, options.now),
@@ -230,6 +235,7 @@ export function renderHistoryShell(view: HistoryShellView, nonce: string): strin
   .ref-current { font-weight: bold; }
   .ref-remote { color: var(--vscode-gitDecoration-untrackedResourceForeground, var(--vscode-descriptionForeground)); }
   .ref-tag { color: var(--vscode-gitDecoration-modifiedResourceForeground, var(--vscode-descriptionForeground)); border-style: dashed; }
+  .ref-unpushed { color: var(--vscode-gitDecoration-addedResourceForeground, var(--vscode-descriptionForeground)); border-style: dotted; }
   .ref-head { background: var(--vscode-statusBarItem-warningBackground, #c69026); color: var(--vscode-statusBarItem-warningForeground, #fff); border-color: transparent; }
   .footer { display: flex; gap: 12px; align-items: center; padding: 10px 12px; color: var(--vscode-descriptionForeground); }
   .empty { padding: 16px 12px; color: var(--vscode-descriptionForeground); }

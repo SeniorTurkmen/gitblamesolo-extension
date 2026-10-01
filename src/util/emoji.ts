@@ -1,0 +1,96 @@
+/**
+ * The gitmoji set (https://gitmoji.dev) and a few other shortcodes common in
+ * commit messages, by the shortcode GitHub renders them from.
+ */
+const EMOJI: Record<string, string> = {
+  adhesive_bandage: '🩹',
+  airplane: '✈️',
+  alembic: '⚗️',
+  alien: '👽️',
+  ambulance: '🚑️',
+  arrow_down: '⬇️',
+  arrow_up: '⬆️',
+  art: '🎨',
+  beers: '🍻',
+  bento: '🍱',
+  bookmark: '🔖',
+  boom: '💥',
+  bricks: '🧱',
+  bug: '🐛',
+  building_construction: '🏗️',
+  bulb: '💡',
+  busts_in_silhouette: '👥',
+  camera_flash: '📸',
+  card_file_box: '🗃️',
+  chart_with_upwards_trend: '📈',
+  children_crossing: '🚸',
+  closed_lock_with_key: '🔐',
+  clown_face: '🤡',
+  coffin: '⚰️',
+  construction: '🚧',
+  construction_worker: '👷',
+  dizzy: '💫',
+  egg: '🥚',
+  fire: '🔥',
+  globe_with_meridians: '🌐',
+  goal_net: '🥅',
+  green_heart: '💚',
+  hammer: '🔨',
+  heavy_check_mark: '✔️',
+  heavy_minus_sign: '➖',
+  heavy_plus_sign: '➕',
+  iphone: '📱',
+  label: '🏷️',
+  lipstick: '💄',
+  lock: '🔒️',
+  loud_sound: '🔊',
+  mag: '🔍️',
+  memo: '📝',
+  money_with_wings: '💸',
+  monocle_face: '🧐',
+  mute: '🔇',
+  necktie: '👔',
+  package: '📦️',
+  page_facing_up: '📄',
+  passport_control: '🛂',
+  pencil: '📝',
+  pencil2: '✏️',
+  poop: '💩',
+  pushpin: '📌',
+  recycle: '♻️',
+  rewind: '⏪️',
+  rocket: '🚀',
+  rotating_light: '🚨',
+  safety_vest: '🦺',
+  see_no_evil: '🙈',
+  seedling: '🌱',
+  sparkles: '✨',
+  speech_balloon: '💬',
+  stethoscope: '🩺',
+  tada: '🎉',
+  technologist: '🧑‍💻',
+  test_tube: '🧪',
+  thread: '🧵',
+  triangular_flag_on_post: '🚩',
+  truck: '🚚',
+  twisted_rightwards_arrows: '🔀',
+  warning: '⚠️',
+  wastebasket: '🗑️',
+  wheelchair: '♿️',
+  white_check_mark: '✅',
+  wrench: '🔧',
+  x: '❌',
+  zap: '⚡️',
+};
+
+let enabled = false;
+
+/** Turns rendering emoji shortcodes on or off for every later `emojify` call. */
+export function configureEmoji(render: boolean): void {
+  enabled = render;
+}
+
+/** Replaces known shortcodes such as `:sparkles:` with their emoji when rendering is on; unknown ones stay as typed. */
+export function emojify(text: string, render = enabled): string {
+  return render ? text.replace(/:([a-z0-9_+-]+):/g, (code, name: string) => EMOJI[name] ?? code) : text;
+}

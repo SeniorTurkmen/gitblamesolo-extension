@@ -7,6 +7,7 @@ import { getCurrentUserEmail } from '../git/gitRemote';
 import { BlameInfo } from '../types';
 import { commitLineRuns } from '../util/commitLines';
 import { formatDecorationText, formatUncommittedText } from '../util/dateFormat';
+import { emojify } from '../util/emoji';
 
 export interface CurrentLineDecoratorDeps {
   blameCache: BlameCache;
@@ -205,7 +206,7 @@ export class CurrentLineBlameDecorator implements vscode.Disposable {
       this.statusBarItem.text = `$(git-commit) ${escapeStatusBarText(statusLabel)}`;
       this.statusBarItem.tooltip = blame.isUncommitted
         ? undefined
-        : `${blame.summary}\n${blame.authorName} • ${blame.sha.slice(0, 7)}\n\nClick to show commit details`;
+        : `${emojify(blame.summary)}\n${blame.authorName} • ${blame.sha.slice(0, 7)}\n\nClick to show commit details`;
       this.statusBarItem.command = blame.isUncommitted ? undefined : 'gitBlameSolo.showCommitDetails';
       this.statusBarItem.show();
     } else {

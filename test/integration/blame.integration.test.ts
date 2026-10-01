@@ -7,11 +7,12 @@ import { applyPatchReverse } from '../../src/git/gitApply';
 import { blameFile, toBlameInfo } from '../../src/git/gitBlame';
 import { buildHunkPatch, getCommitDiff, isRevertibleHunk } from '../../src/git/gitCommitDiff';
 import { getChangedFiles, getMergeBase, getTags, resolveCommit } from '../../src/git/gitCompare';
-import { getLineDiffHunk, getParentLine } from '../../src/git/gitDiff';
+import { getLineDiffHunk, getParentLine, getUncommittedHunk } from '../../src/git/gitDiff';
 import { getBranches, getHistoryPage } from '../../src/git/gitHistory';
 import { getLineHistory } from '../../src/git/gitLineHistory';
 import { repositoryGitConfigPath } from '../../src/git/gitConfigFiles';
-import { getCommitDetails } from '../../src/git/gitLog';
+import { getCommitDetails, getCommitMessage } from '../../src/git/gitLog';
+import { getUnpushedCommits } from '../../src/git/gitUnpushed';
 import { repoRelativePath } from '../../src/git/repoRelativePath';
 import { removeRepo } from '../fixtures/tempRepo';
 import { clearRemoteCaches, getCommitLink, getCurrentUserEmail } from '../../src/git/gitRemote';
@@ -598,5 +599,97 @@ describe('git history', () => {
     const addA = execFileSync('git', ['rev-parse', 'feature~1'], { cwd: repoRoot, encoding: 'utf8' }).trim();
     assert.strictEqual(await getMergeBase(repoRoot, 'feature', 'main'), addA);
     assert.deepStrictEqual(await getTags(repoRoot), ['v1']);
+  });
+});
+
+describe('unpushed commits and commit messages', () => {
+  let repoRoot: string;
+  let remote: string;
+
+  before(() => {
+    remote = fs.mkdtempSync(path.join(os.tmpdir(), 'gitblamesolo-remote-'));
+    git(remote, ['init', '--bare', '--initial-branch=main']);
+    repoRoot = initRepo('gitblamesolo-unpushed-');
+    fs.writeFileSync(path.join(repoRoot, 'a.txt'), 'one\n');
+    git(repoRoot, ['add', 'a.txt']);
+    git(repoRoot, ['commit', '-m', ':sparkles: Add a', '-m', 'With a body.']);
+  });
+
+  after(() => {
+    removeRepo(repoRoot);
+    removeRepo(remote);
+  });
+
+  function head(): string {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim();
+  }
+
+  it('reads the full commit message', async () => {
+    assert.strictEqual(await getCommitMessage(head(), repoRoot), ':sparkles: Add a\n\nWith a body.');
+    assert.strictEqual(await getCommitMessage('0'.repeat(40), repoRoot), undefined);
+  });
+
+  it('marks nothing before the repository has any remote branch', async () => {
+    assert.strictEqual(await getUnpushedCommits(repoRoot), undefined);
+  });
+
+  it('lists the commits no remote branch contains', async () => {
+    git(repoRoot, ['remote', 'add', 'origin', remote]);
+    git(repoRoot, ['push', '-q', 'origin', 'main']);
+    const pushed = head();
+    fs.writeFileSync(path.join(repoRoot, 'a.txt'), 'two\n');
+    git(repoRoot, ['commit', '-qam', 'Change a']);
+    const unpushed = await getUnpushedCommits(repoRoot);
+    assert.deepStrictEqual([...(unpushed ?? [])], [head()]);
+    assert.ok(!unpushed?.has(pushed));
+  });
+});
+
+describe('uncommitted hunk', () => {
+  let repoRoot: string;
+  const lines = (rows: string[]) => rows.map((row) => `${row}\n`).join('');
+
+  before(() => {
+    repoRoot = initRepo('gitblamesolo-uncommitted-');
+    fs.writeFileSync(path.join(repoRoot, 'a.txt'), lines(['c', 'b', 'b', 'c', 'c', 'b', 'b', 'c', 'c', 'a']));
+    git(repoRoot, ['add', 'a.txt']);
+    git(repoRoot, ['commit', '-m', 'Add a']);
+  });
+
+  after(() => removeRepo(repoRoot));
+
+  it('pairs a changed line with the line it replaced, among repeated lines', async () => {
+    const current = lines(['c', 'b', 'b', 'cX', 'c', 'b', 'b', 'c', 'c', 'bX', 'a']);
+    const hunk = await getUncommittedHunk(repoRoot, 'a.txt', current, 3);
+    assert.ok(hunk?.includes(' b\n-c\n+cX\n c\n'), hunk);
+  });
+
+  it('keeps changes far apart in separate hunks', async () => {
+    const rows = Array.from({ length: 30 }, (_, i) => `line ${i + 1}`);
+    fs.writeFileSync(path.join(repoRoot, 'b.txt'), lines(rows));
+    git(repoRoot, ['add', 'b.txt']);
+    git(repoRoot, ['commit', '-m', 'Add b']);
+    const current = [...rows];
+    current[2] = 'first';
+    current[25] = 'second';
+    const hunk = await getUncommittedHunk(repoRoot, 'b.txt', lines(current), 25);
+    assert.ok(hunk?.startsWith('@@ -23,7 +23,7 @@'), hunk);
+    assert.ok(hunk?.includes('-line 26\n+second') && !hunk.includes('first'), hunk);
+  });
+
+  it('shows a change apart from another a few lines away', async () => {
+    const rows = Array.from({ length: 12 }, (_, i) => `row ${i + 1}`);
+    fs.writeFileSync(path.join(repoRoot, 'c.txt'), lines(rows));
+    git(repoRoot, ['add', 'c.txt']);
+    git(repoRoot, ['commit', '-m', 'Add c']);
+    const current = [...rows];
+    current[3] = 'near one';
+    current[6] = 'near two';
+    const hunk = await getUncommittedHunk(repoRoot, 'c.txt', lines(current), 3);
+    assert.strictEqual(hunk, ['@@ -1,6 +1,6 @@', ' row 1', ' row 2', ' row 3', '-row 4', '+near one', ' row 5', ' row 6'].join('\n'));
+  });
+
+  it('shows every line of a new file as added', async () => {
+    assert.strictEqual(await getUncommittedHunk(repoRoot, 'new.txt', 'x\ny\n', 1), '@@ -0,0 +1,2 @@\n+x\n+y');
   });
 });

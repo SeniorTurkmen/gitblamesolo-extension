@@ -59,6 +59,7 @@ Jane Doe, 3 days ago • Fix race condition in session refresh
 - Your own commits read as **"You"** instead of your name.
 - Dates follow **your region's conventions**: *vor 3 Tagen*, *3 gün önce*, *22.09.2026, 14:39*. By default they follow your operating system's region settings; set [`gitBlameSolo.dateLocale`](#settings) to `vscode` for VS Code's display language, or to a tag such as `en-GB`. The `iso` [date style](#settings) shows *2026-09-22 14:39* everywhere.
 - Prefer the status bar? Turn on [`gitBlameSolo.statusBar.enabled`](#settings), and optionally turn off `gitBlameSolo.enabled`.
+- Turn on [`gitBlameSolo.renderEmoji`](#settings) to show shortcodes such as `:sparkles:` and `:bug:` in commit messages as the [gitmoji](https://gitmoji.dev) they stand for: ✨ and 🐛, in the annotation, hover, git log, and commit details.
 - Turn on [`gitBlameSolo.highlightCommitLines`](#settings) to **highlight every other line of the file from the same commit** as the current line, with marks in the scroll bar, so you see the whole change at a glance. The colors are the `gitBlameSolo.commitLinesBackground` and `gitBlameSolo.commitLinesOverviewRuler` theme colors.
 - Commits listed in a **`.git-blame-ignore-revs`** file at the repository root, such as bulk reformatting, are skipped automatically, as GitHub does.
 
@@ -93,16 +94,18 @@ Blame is computed against the **live editor buffer**: the extension pipes the bu
 
 While you type, edited lines read as uncommitted right away without running `git`. About a second after you stop typing, the buffer is blamed again, so a line you changed back to its committed text shows its commit again without saving.
 
+Hovering an uncommitted line shows how many lines changed since the last commit, unsaved edits included. **Show change inline** opens VS Code's change peek at that line, with the committed lines above your version, and **Open in Diff Editor** compares the whole file with its last commit.
+
 ### Rich hover: the commit and what it changed
 
 Hover the inline annotation at the end of the current line to open a popup containing:
 
 | Section | What you see |
 | --- | --- |
-| **Header** | Commit subject, author (with email), absolute date, and short hash with a button that copies the full hash. Click the author to see all of their commits in the [git log](#git-log-and-file-history) |
+| **Header** | Commit subject, author (with email), absolute date, and short hash with a button that copies the full hash, and **Copy message** for the full commit message. With [`gitBlameSolo.showUnpushed`](#settings) on, commits no remote branch contains yet are marked **Not pushed yet**. Click the author to see all of their commits in the [git log](#git-log-and-file-history) |
 | **Co-authors** | Everyone credited with a `Co-authored-by:` trailer, if any |
 | **Body** | The full commit message body, if there is one, without the co-author trailers |
-| **What changed** | A colored `diff` of the **entire changed block** the line belongs to (every contiguous line changed in the same hunk, not only the hovered line), with an added/removed line count |
+| **What changed** | A colored `diff` of the **entire changed block** the line belongs to (every contiguous changed line, not only the hovered line) with up to three unchanged lines around it, and an added/removed line count. Other changes a few lines away are left out, so the block reads on its own. **Show change inline** opens the block in the editor, under the line, next to the line's history |
 | **Actions** | **Open in Diff Editor** (at the line), **View changed files (N files)**, **Line history**, **Blame previous revision** when the line existed before the commit, and **Open on GitHub** (or GitLab, Bitbucket, Azure DevOps) when the repository has a remote, plus **PR #N** (**MR !N** on GitLab) when the commit message names the pull request it came from |
 
 This shows you the context of a change right away: you see the rest of the block that changed with the line, not just the one line in isolation.
@@ -110,6 +113,10 @@ This shows you the context of a change right away: you see the rest of the block
 By default the popup only opens over the annotation, so hovering your code for other tooltips (types, errors, docs) isn't crowded by blame. To get it anywhere on any line instead, set [`gitBlameSolo.hover.trigger`](#settings) to `"line"`.
 
 ![Hover popup with commit details and the changed block](docs/images/hover.png)
+
+**Show change inline** opens the same block right under the line, in a peek like VS Code's own for local changes: removed lines on red and added lines on green, with their line numbers before and after the commit, highlighted as the file's language. The list beside it holds the line's history, newest first: each commit that changed the line, with its author and date. Pick one to see its change to the line in the same place, or double-click a change to open that commit's diff of the file.
+
+![A commit's change shown inline under the line, with removed and added lines, their old and new line numbers, and the line's history beside it](docs/images/change-peek.png)
 
 ### Native diff editor
 
@@ -142,6 +149,7 @@ By default the popup only opens over the annotation, so hovering your code for o
 - **Search** commit messages and **filter by author** (name or email). Both match the text as typed, ignoring case. Click an author in the list to show only their commits.
 - **File history:** **Git Blame Solo: Show File History** (the history icon in the editor title bar, or the right-click menu of a file in the Explorer, an editor tab, or the Source Control view) shows only the commits that changed that file, following renames. Clear the file chip in the toolbar to see every commit again. A commit opened from a file's history marks that file in the commit details panel.
 - **Click a commit** (or press <kbd>Enter</kbd> on it) to open the commit details panel with its diffs. The button next to the hash copies it. Use the arrow keys to move between commits.
+- With [`gitBlameSolo.showUnpushed`](#settings) on, commits on the current branch that no remote branch contains yet get a **not pushed** badge.
 - Commits load 200 at a time; **Load more** fetches the next page.
 
 The graph is hidden while a search, author, or file filter is on, because the filtered list leaves out the commits the lines would pass through.
@@ -215,6 +223,7 @@ Open the Command Palette (<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P
 | `Git Blame Solo: Toggle File Blame` | Turns the file blame column on or off (saved to your user settings). |
 | `Git Blame Solo: Show Commit Details` | Opens the commit details panel for the line under the cursor. Also available from the editor's right-click menu. |
 | `Git Blame Solo: Copy Commit Hash` | Copies the full hash of the commit that last changed the current line to the clipboard. |
+| `Git Blame Solo: Copy Commit Message` | Copies the full message of the commit that last changed the current line to the clipboard. |
 | `Git Blame Solo: Show Git Log` | Opens the git log with the commit graph for the repository of the active file (or one you pick). |
 | `Git Blame Solo: Show File History` | Opens the git log filtered to the commits that changed the active file. |
 | `Git Blame Solo: Open File at Revision…` | Lists the commits that changed the active file; opens the file as it was in the one you pick. |
@@ -277,6 +286,8 @@ Every setting below can also be changed from the Command Palette with **Git Blam
 | `gitBlameSolo.fileBlame.enabled` | `false` | Show blame for every line of the file in a column before the text. Also toggled by **Git Blame Solo: Toggle File Blame**. |
 | `gitBlameSolo.fileBlame.template` | `"${author}, ${date}"` | Template for the file blame column. Same placeholders as `decorationTemplate`. |
 | `gitBlameSolo.fileBlame.heatmap` | `true` | Tint the file blame column by how recent each line's commit is, from blue (oldest) to orange (newest). |
+| `gitBlameSolo.renderEmoji` | `false` | Show emoji shortcodes in commit messages, such as `:sparkles:` from gitmoji, as the emoji they stand for. |
+| `gitBlameSolo.showUnpushed` | `false` | Mark commits that no remote branch contains yet as not pushed, in the hover and the git log. Repositories without remotes are not marked. |
 | `gitBlameSolo.highlightCommitLines` | `false` | Highlight the other lines of the file from the current line's commit, with marks in the scroll bar. |
 | `gitBlameSolo.editorTitleButtons` | `true` | Show the **File History** and **Toggle File Blame** buttons in the editor title bar. |
 

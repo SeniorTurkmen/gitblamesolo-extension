@@ -5,6 +5,8 @@ export interface RunGitOptions {
   input?: string;
   signal?: AbortSignal;
   maxBuffer?: number;
+  /** Exit codes besides 0 that still mean success, such as 1 from `git diff --no-index` when the files differ. */
+  successExitCodes?: number[];
 }
 
 const DEFAULT_MAX_BUFFER = 10 * 1024 * 1024;
@@ -37,6 +39,10 @@ export function runGit(args: string[], options: RunGitOptions): Promise<string> 
           const code = (error as NodeJS.ErrnoException).code;
           const isGitMissing = code === 'ENOENT';
           const exitCode = typeof code === 'number' ? code : null;
+          if (exitCode !== null && options.successExitCodes?.includes(exitCode)) {
+            resolve(stdout);
+            return;
+          }
           reject(
             new GitCliError(
               `git ${args[0]} failed: ${stderr || error.message}`,

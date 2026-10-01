@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { getBranches, getHistoryPage, HistoryEntry, HistoryFilter, HistoryScope } from '../git/gitHistory';
 import { compareWithWorkingFile, openFileAtRevision } from '../commands/revision';
 import { getCurrentUserEmail } from '../git/gitRemote';
+import { getUnpushedCommits } from '../git/gitUnpushed';
 import { DateStyle } from '../util/dateFormat';
 import { layoutGraph } from '../util/historyGraph';
 import { renderHistoryRows, renderHistoryShell } from './historyHtml';
@@ -23,6 +24,7 @@ type WebviewMessage =
 export interface HistoryPanelSettings {
   dateStyle: DateStyle;
   currentUserLabel: string;
+  showUnpushed: boolean;
 }
 
 function parseScope(value: string): HistoryScope {
@@ -159,7 +161,7 @@ export class HistoryPanel {
   private async load(append: boolean): Promise<void> {
     const generation = ++this.generation;
     const settings = this.getSettings();
-    const [page, currentUserEmail] = await Promise.all([
+    const [page, currentUserEmail, unpushed] = await Promise.all([
       getHistoryPage({
         repoRoot: this.repoRoot,
         ...this.filter,
@@ -167,6 +169,7 @@ export class HistoryPanel {
         limit: PAGE_SIZE,
       }),
       settings.currentUserLabel ? getCurrentUserEmail(this.repoRoot) : Promise.resolve(undefined),
+      settings.showUnpushed ? getUnpushedCommits(this.repoRoot) : Promise.resolve(undefined),
     ]);
     if (generation !== this.generation) {
       return;
@@ -182,6 +185,7 @@ export class HistoryPanel {
       currentUserLabel: settings.currentUserLabel,
       currentUserEmail,
       fileActions: Boolean(this.filter.path),
+      unpushed,
     });
 
     const count = this.entries.length;
