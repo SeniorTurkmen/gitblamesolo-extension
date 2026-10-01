@@ -88,20 +88,24 @@ describe('file blame', () => {
     }
   });
 
-  it('shows a commit\'s change inline, under its line', async () => {
+  it('shows a line\'s history inline, under the line, a change per commit', async () => {
+    const editor = vscode.window.activeTextEditor!;
+    await editor.edit((edit) => edit.replace(new vscode.Range(1, 0, 1, 'second line'.length), 'revised line'));
+    await editor.document.save();
+    execFileSync('git', ['commit', '-am', 'Revise the second line'], { cwd: repoRoot });
     const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim();
     await vscode.commands.executeCommand('gitBlameSolo.showCommitChange', sha, repoRoot, 'file.txt', 1, fileUri.toString(), 1);
-    let peek: vscode.TextEditor | undefined;
-    for (let attempt = 0; attempt < 50 && !peek; attempt++) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      peek = vscode.window.visibleTextEditors.find((editor) => editor.document.uri.scheme === 'gitBlameSoloChange');
-    }
-    assert.ok(
-      peek,
-      `docs: ${vscode.workspace.textDocuments.map((d) => d.uri.toString()).join(', ')}; editors: ${vscode.window.visibleTextEditors.map((e) => e.document.uri.toString()).join(', ')}`,
-    );
-    assert.strictEqual(peek.document.getText(), `first line\nsecond line\n\n${sha.slice(0, 7)}  Add the file blame fixture`);
-    assert.strictEqual(peek.document.languageId, 'plaintext');
+    // The peek's editor only shows among the visible editors while the window has focus, so check its documents.
+    const blocks = vscode.workspace.textDocuments.filter((document) => document.uri.scheme === 'gitBlameSoloChange');
+    const titles = blocks.map((document) => document.uri.path);
+    // The newest commit's change comes first, and each commit in the line's history is a document of its own.
+    assert.strictEqual(blocks.length, 2, titles.join(', '));
+    const [newest, oldest] = [...blocks].sort((a, b) => a.uri.toString().localeCompare(b.uri.toString()));
+    assert.ok(newest.uri.path.endsWith(`/${sha.slice(0, 7)} Revise the second line`), titles.join(', '));
+    assert.strictEqual(newest.getText(), 'first line\nsecond line\nrevised line');
+    assert.strictEqual(newest.languageId, 'plaintext');
+    assert.ok(oldest.uri.path.endsWith(' Add the file blame fixture'), titles.join(', '));
+    assert.strictEqual(oldest.getText(), 'first line\nsecond line');
     await vscode.commands.executeCommand('closeReferenceSearch');
   });
 });

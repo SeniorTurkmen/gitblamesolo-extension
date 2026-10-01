@@ -352,7 +352,7 @@ export class BlameHoverProvider implements vscode.HoverProvider {
     appendDiffBlock(
       md,
       diffHunk,
-      `[$(eye) Show change inline](${peekUri} "Show this change in the editor, under the line") &nbsp;&nbsp; [$(link-external) Open in Diff Editor](${openDiffUri})`,
+      `[$(eye) Show change inline](${peekUri} "Show this change and the line's history in the editor, under the line") &nbsp;&nbsp; [$(link-external) Open in Diff Editor](${openDiffUri})`,
     );
   }
 

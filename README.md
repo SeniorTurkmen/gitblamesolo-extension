@@ -105,7 +105,7 @@ Hover the inline annotation at the end of the current line to open a popup conta
 | **Header** | Commit subject, author (with email), absolute date, and short hash with a button that copies the full hash, and **Copy message** for the full commit message. With [`gitBlameSolo.showUnpushed`](#settings) on, commits no remote branch contains yet are marked **Not pushed yet**. Click the author to see all of their commits in the [git log](#git-log-and-file-history) |
 | **Co-authors** | Everyone credited with a `Co-authored-by:` trailer, if any |
 | **Body** | The full commit message body, if there is one, without the co-author trailers |
-| **What changed** | A colored `diff` of the **entire changed block** the line belongs to (every contiguous changed line, not only the hovered line) with up to three unchanged lines around it, and an added/removed line count. Other changes a few lines away are left out, so the block reads on its own. **Show change inline** opens the block in the editor, under the line |
+| **What changed** | A colored `diff` of the **entire changed block** the line belongs to (every contiguous changed line, not only the hovered line) with up to three unchanged lines around it, and an added/removed line count. Other changes a few lines away are left out, so the block reads on its own. **Show change inline** opens the block in the editor, under the line, next to the line's history |
 | **Actions** | **Open in Diff Editor** (at the line), **View changed files (N files)**, **Line history**, **Blame previous revision** when the line existed before the commit, and **Open on GitHub** (or GitLab, Bitbucket, Azure DevOps) when the repository has a remote, plus **PR #N** (**MR !N** on GitLab) when the commit message names the pull request it came from |
 
 This shows you the context of a change right away: you see the rest of the block that changed with the line, not just the one line in isolation.
@@ -114,9 +114,9 @@ By default the popup only opens over the annotation, so hovering your code for o
 
 ![Hover popup with commit details and the changed block](docs/images/hover.png)
 
-**Show change inline** opens the same block right under the line, in a peek like VS Code's own for local changes: removed lines on red and added lines on green, with their line numbers before and after the commit, highlighted as the file's language. The commit's hash and subject head the list beside the block and sit under it.
+**Show change inline** opens the same block right under the line, in a peek like VS Code's own for local changes: removed lines on red and added lines on green, with their line numbers before and after the commit, highlighted as the file's language. The list beside it holds the line's history, newest first: each commit that changed the line, with its author and date. Pick one to see its change to the line in the same place.
 
-![A commit's change shown inline under the line, with removed and added lines and their old and new line numbers](docs/images/change-peek.png)
+![A commit's change shown inline under the line, with removed and added lines, their old and new line numbers, and the line's history beside it](docs/images/change-peek.png)
 
 ### Native diff editor
 

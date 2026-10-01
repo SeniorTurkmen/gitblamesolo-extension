@@ -16,6 +16,7 @@ import { blameTarget, resolveBlameTarget } from './git/blameTarget';
 import { GitCliError, runGit } from './git/gitCli';
 import { getCommitDiff } from './git/gitCommitDiff';
 import { getLineDiffHunk, getParentLine } from './git/gitDiff';
+import { getLineHistory } from './git/gitLineHistory';
 import { getCommitDetails, getCommitMessage } from './git/gitLog';
 import { clearRemoteCaches, getCommitLink } from './git/gitRemote';
 import { invalidateRepositoryCache } from './git/gitRepository';
@@ -24,14 +25,16 @@ import { UnpushedCache } from './git/gitUnpushed';
 import { buildGitShowUri, GIT_SHOW_SCHEME, GitShowContentProvider } from './git/gitShowContentProvider';
 import { BlameHoverProvider } from './hover/blameHoverProvider';
 import { BlameInfo } from './types';
-import { configureDates, resolveDateLocale } from './util/dateFormat';
+import { configureDates, formatDate, resolveDateLocale } from './util/dateFormat';
 import { configureEmoji, emojify } from './util/emoji';
 import { detectSystemLocale } from './util/systemLocale';
-import { ChangePeek } from './peek/changePeek';
+import { ChangePeek, ChangePeekBlock } from './peek/changePeek';
 import { CommitDetailsPanel } from './webview/commitDetailsPanel';
 
 /** How long typing must pause before an edited document is blamed again with its unsaved text. */
 const REBLAME_DELAY_MS = 1000;
+/** How many commits of a line's history the change peek lists. */
+const LINE_HISTORY_PEEK_COUNT = 20;
 
 async function warnIfGitMissing(): Promise<void> {
   try {
@@ -539,34 +542,55 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   const changePeek = new ChangePeek();
+
+  /**
+   * The changes of every commit in a line's history, newest first, starting at `sha`; just that commit's when
+   * the history can't be read. Each is the changed block holding the line, as the hover shows it.
+   */
+  async function lineHistoryBlocks(sha: string, repoRoot: string, relativePath: string, line: number): Promise<ChangePeekBlock[]> {
+    const history = (await getLineHistory({ sha, repoRoot, relativePath, line, maxCount: LINE_HISTORY_PEEK_COUNT })) ?? [];
+    const commits = history.length > 0 ? history : [{ sha, path: relativePath, line }];
+    const blocks: (ChangePeekBlock | undefined)[] = [];
+    // A few at a time, as each block runs git twice.
+    for (let start = 0; start < commits.length; start += 4) {
+      blocks.push(
+        ...(await Promise.all(
+          commits.slice(start, start + 4).map(async (entry) => {
+            const [hunk, commit] = await Promise.all([
+              lineDiffCache.getOrCompute(entry.sha, `${entry.path}#${entry.line}`, () =>
+                getLineDiffHunk({ sha: entry.sha, relativePath: entry.path, line: entry.line, repoRoot }),
+              ),
+              commitCache.getOrCompute(entry.sha, () => getCommitDetails(entry.sha, repoRoot)),
+            ]);
+            if (!hunk) {
+              return undefined;
+            }
+            return {
+              hunk,
+              focusNewLine: entry.line + 1,
+              title: `${entry.sha.slice(0, 7)} ${emojify(commit?.summary ?? '')}`,
+              description: commit ? `${commit.authorName}, ${formatDate(commit.authorTimestamp, 'relative')}` : '',
+            };
+          }),
+        )),
+      );
+    }
+    return blocks.filter((block): block is ChangePeekBlock => block !== undefined);
+  }
   context.subscriptions.push(
     changePeek,
     vscode.commands.registerCommand(
       'gitBlameSolo.showCommitChange',
       async (sha: string, repoRoot: string, relativePath: string, line: number, sourceUri: string, sourceLine: number) => {
-        const [hunk, commit] = await Promise.all([
-          lineDiffCache.getOrCompute(sha, `${relativePath}#${line}`, () =>
-            getLineDiffHunk({ sha, relativePath, line, repoRoot }),
-          ),
-          commitCache.getOrCompute(sha, () => getCommitDetails(sha, repoRoot)),
-        ]);
-        if (!hunk) {
-          return;
-        }
         const uri = vscode.Uri.parse(sourceUri);
         const editor = await vscode.window.showTextDocument(uri);
         const position = new vscode.Position(sourceLine, 0);
         editor.selection = new vscode.Selection(position, position);
-        await changePeek.show({
-          sourceUri: uri,
-          sourceLine,
-          hunk,
-          focusNewLine: line + 1,
-          description: `${sha.slice(0, 7)} ${emojify(commit?.summary ?? '')}`.trim(),
-          footer: `${sha.slice(0, 7)}  ${emojify(commit?.summary ?? '')}`.trimEnd(),
-          fileName: path.posix.basename(relativePath),
-          languageId: editor.document.languageId,
-        });
+        const blocks = await vscode.window.withProgress(
+          { location: vscode.ProgressLocation.Window, title: 'Git Blame Solo: reading the line history' },
+          () => lineHistoryBlocks(sha, repoRoot, relativePath, line),
+        );
+        await changePeek.show({ sourceUri: uri, sourceLine, blocks, languageId: editor.document.languageId });
       },
     ),
   );
