@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.0
 
 - Added **gitmoji**: with `gitBlameSolo.renderEmoji` on, shortcodes such as `:sparkles:` and `:bug:` in commit messages show as ✨ and 🐛 in the annotation, hover, git log, and commit details. Off by default.
 - Added **Git Blame Solo: Copy Commit Message**, which copies the full message of the current line's commit. The blame hover has a **Copy message** button next to the hash.
