@@ -1,7 +1,7 @@
 // Minimal subset of microsoft/vscode's built-in git extension API,
 // vendored from extensions/git/src/api/git.d.ts (trimmed to what this
 // extension needs: resolving a repository's root for a given file URI and
-// noticing when a repository's HEAD moves).
+// noticing when a repository's HEAD moves, and fetching from its remotes).
 import { Event, Uri } from 'vscode';
 
 export interface Ref {
@@ -14,9 +14,18 @@ export interface RepositoryState {
   readonly onDidChange: Event<void>;
 }
 
+export interface FetchOptions {
+  remote?: string;
+  ref?: string;
+  all?: boolean;
+  prune?: boolean;
+  depth?: number;
+}
+
 export interface Repository {
   readonly rootUri: Uri;
   readonly state: RepositoryState;
+  fetch(options?: FetchOptions): Promise<void>;
 }
 
 export interface API {

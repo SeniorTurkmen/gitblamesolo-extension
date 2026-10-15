@@ -248,7 +248,7 @@ export function renderHistoryShell(view: HistoryShellView, nonce: string): strin
   <input id="search" type="search" placeholder="Search messages" value="${escapeHtml(filter.search ?? '')}" />
   <input id="author" type="search" placeholder="Author" value="${escapeHtml(filter.author ?? '')}" />
   ${pathChip}
-  <button id="refresh" title="Reload the history">Refresh</button>
+  <button id="refresh" title="Fetch from the remotes and reload the history">Refresh</button>
 </div>
 <div id="list" role="list"></div>
 <div class="footer"><button id="more" hidden>Load more</button><span id="status">Loading…</span></div>
@@ -281,7 +281,13 @@ export function renderHistoryShell(view: HistoryShellView, nonce: string): strin
   if (clearPath) {
     clearPath.addEventListener('click', () => { path = ''; clearPath.parentElement.remove(); sendFilter(); });
   }
-  document.getElementById('refresh').addEventListener('click', sendFilter);
+  const refresh = document.getElementById('refresh');
+  refresh.addEventListener('click', () => {
+    clearTimeout(timer);
+    refresh.disabled = true;
+    status.textContent = 'Fetching…';
+    vscode.postMessage({ type: 'refresh', scope: scope.value, search: search.value, author: author.value, path });
+  });
   more.addEventListener('click', () => { more.disabled = true; vscode.postMessage({ type: 'more' }); });
 
   function select(row) {

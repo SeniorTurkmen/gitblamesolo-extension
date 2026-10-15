@@ -5,6 +5,8 @@ export interface RunGitOptions {
   input?: string;
   signal?: AbortSignal;
   maxBuffer?: number;
+  /** Variables added to git's environment. */
+  env?: NodeJS.ProcessEnv;
   /** Exit codes besides 0 that still mean success, such as 1 from `git diff --no-index` when the files differ. */
   successExitCodes?: number[];
 }
@@ -30,6 +32,7 @@ export function runGit(args: string[], options: RunGitOptions): Promise<string> 
       args,
       {
         cwd: options.cwd,
+        env: options.env ? { ...process.env, ...options.env } : undefined,
         encoding: 'utf8',
         maxBuffer: options.maxBuffer ?? DEFAULT_MAX_BUFFER,
         signal: options.signal,

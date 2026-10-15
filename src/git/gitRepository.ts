@@ -10,7 +10,7 @@ export interface GitRepositoryContext {
 
 const cache = new Map<string, GitRepositoryContext | undefined>();
 
-function getBuiltinGitApi() {
+export function getBuiltinGitApi() {
   const ext = vscode.extensions.getExtension<GitExtension>('vscode.git');
   if (!ext) {
     return undefined;

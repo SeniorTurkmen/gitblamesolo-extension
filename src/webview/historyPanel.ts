@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { getBranches, getHistoryPage, HistoryEntry, HistoryFilter, HistoryScope } from '../git/gitHistory';
+import { fetchAllRemotes } from '../git/gitFetch';
 import { compareWithWorkingFile, openFileAtRevision } from '../commands/revision';
 import { getCurrentUserEmail } from '../git/gitRemote';
 import { getUnpushedCommits } from '../git/gitUnpushed';
@@ -14,6 +15,7 @@ const PAGE_SIZE = 200;
 type WebviewMessage =
   | { type: 'ready' }
   | { type: 'filter'; scope: string; search: string; author: string; path: string }
+  | { type: 'refresh'; scope: string; search: string; author: string; path: string }
   | { type: 'more' }
   | { type: 'openCommit'; sha: string; path?: string }
   | { type: 'copySha'; sha: string }
@@ -113,14 +115,12 @@ export class HistoryPanel {
         await this.load(false);
         break;
       case 'filter':
-        this.filter = {
-          scope: parseScope(message.scope),
-          search: message.search.trim() || undefined,
-          author: message.author.trim() || undefined,
-          path: message.path || undefined,
-        };
+        this.filter = HistoryPanel.filterFrom(message);
         this.updateTitle();
         await this.load(false);
+        break;
+      case 'refresh':
+        await this.refresh(HistoryPanel.filterFrom(message));
         break;
       case 'more':
         await this.load(true);
@@ -156,6 +156,31 @@ export class HistoryPanel {
         await vscode.commands.executeCommand('gitBlameSolo.copyCommitHash', message.sha);
         break;
     }
+  }
+
+  private static filterFrom(message: { scope: string; search: string; author: string; path: string }): HistoryFilter {
+    return {
+      scope: parseScope(message.scope),
+      search: message.search.trim() || undefined,
+      author: message.author.trim() || undefined,
+      path: message.path || undefined,
+    };
+  }
+
+  /** Fetches the remotes, then renders the page again, so new remote commits and branches show up. */
+  private async refresh(filter: HistoryFilter): Promise<void> {
+    const generation = ++this.generation;
+    try {
+      await fetchAllRemotes(this.repoRoot);
+    } catch (err) {
+      // Offline or no access: still show what the repository has locally.
+      const reason = err instanceof Error ? err.message : String(err);
+      void vscode.window.showWarningMessage(`Git Blame Solo: could not fetch from the remotes. ${reason}`);
+    }
+    if (generation !== this.generation) {
+      return;
+    }
+    await this.setFilter(filter);
   }
 
   private async load(append: boolean): Promise<void> {
