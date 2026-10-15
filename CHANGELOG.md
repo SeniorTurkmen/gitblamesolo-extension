@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Fixed: **Refresh** in the git log only re-read the local repository, so commits and branches pushed elsewhere didn't show until something else fetched. It now fetches from every remote first, then reloads the history and the branch list. If the fetch fails, for example offline, a warning says so and the log still shows the local commits.
+
 ## 1.0.0
 
 - Added **gitmoji**: with `gitBlameSolo.renderEmoji` on, shortcodes such as `:sparkles:` and `:bug:` in commit messages show as ✨ and 🐛 in the annotation, hover, git log, and commit details. Off by default.
