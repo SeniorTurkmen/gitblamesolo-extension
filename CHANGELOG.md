@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.1
 
 - Fixed: **Refresh** in the git log only re-read the local repository, so commits and branches pushed elsewhere didn't show until something else fetched. It now fetches from every remote first, then reloads the history and the branch list. If the fetch fails, for example offline, a warning says so and the log still shows the local commits.
 
