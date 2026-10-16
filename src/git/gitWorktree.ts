@@ -53,10 +53,12 @@ export function parseWorktreeList(output: string): Worktree[] {
   return worktrees;
 }
 
-/** The worktrees of the repository `repoRoot` belongs to, main worktree first. Empty when git fails. */
+/** The worktrees of the repository `repoRoot` belongs to, main worktree first, then the linked ones by path. Empty when git fails. */
 export async function listWorktrees(repoRoot: string): Promise<Worktree[]> {
   try {
-    return parseWorktreeList(await runGit(['worktree', 'list', '--porcelain'], { cwd: repoRoot }));
+    const [main, ...linked] = parseWorktreeList(await runGit(['worktree', 'list', '--porcelain'], { cwd: repoRoot }));
+    // Git lists linked worktrees in the order the file system gives, which differs between systems.
+    return main ? [main, ...linked.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))] : [];
   } catch (err) {
     if (err instanceof GitCliError) {
       return [];
