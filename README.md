@@ -9,7 +9,7 @@
 
 Move your cursor to any line and a quiet annotation at the end of it shows the author, how long ago it changed, and the commit message. Hover the line to see the full commit and the exact change it introduced. One more click gives you every file in that commit with colored diffs, and you can revert a single hunk from there if you need to.
 
-For the bigger picture, the git log shows the repository's commits with a branch graph, and a file's history lists every commit that changed it. It stays out of the way and has no dependencies beyond the `git` you already have installed.
+For the bigger picture, the git log shows the repository's commits with a branch graph, and a file's history lists every commit that changed it. The Worktrees view creates, opens, and cleans up git worktrees, so you can work on several branches side by side. It stays out of the way and has no dependencies beyond the `git` you already have installed.
 
 ![Git Blame Solo overview](docs/images/overview.png)
 
@@ -322,6 +322,8 @@ For example, to show the short hash first with an absolute date:
 - The remote URL and your `user.email` are re-read when the repository's config file or your global git config (`~/.gitconfig`, `~/.config/git/config`, or `$GIT_CONFIG_GLOBAL`) changes. Changes elsewhere, such as the system config or a file pulled in with `include`, need **Git Blame Solo: Refresh**.
 - Files larger than `gitBlameSolo.maxFileSizeKB` are skipped.
 - Only local files and the past revisions this extension opens are blamed. Other virtual or remote file systems aren't.
+- The Worktrees view reads the worktrees again when VS Code's git extension reports a change, when the window gets focus, and on **Refresh Worktrees**. A worktree added or removed in a terminal shows up once you switch back to VS Code or refresh.
+- VS Code has no API to mark the window title or the Explorer's project name, so a linked worktree is shown in the status bar instead.
 
 ---
 
