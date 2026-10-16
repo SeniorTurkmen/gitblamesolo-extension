@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Added a **Worktrees** view to the Activity Bar. It lists every worktree of the open repositories with its branch, folder, and whether the branch is merged into the default branch. **Create Worktree…** checks out a new, existing, or remote branch in a folder of its own, next to the repository or in `.worktrees/`, following the folder the repository already uses or the new `gitBlameSolo.worktrees.folder` setting. Worktrees open in a new window or this one, and can be deleted one at a time, several at once, or all with **Clean Up Worktrees…**, choosing which of their branches to delete too; deleting a branch that isn't merged asks again, and a branch that is on a remote can be deleted there too or only locally.
+- When the window has a linked worktree open, a **Worktree:** item in the status bar says so.
+
 ## 1.0.1
 
 - Fixed: **Refresh** in the git log only re-read the local repository, so commits and branches pushed elsewhere didn't show until something else fetched. It now fetches from every remote first, then reloads the history and the branch list. If the fetch fails, for example offline, a warning says so and the log still shows the local commits.

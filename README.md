@@ -31,6 +31,7 @@ For the bigger picture, the git log shows the repository's commits with a branch
   - [Line history](#line-history)
   - [Step back through a line's history](#step-back-through-a-lines-history)
   - [Revert a single hunk](#revert-a-single-hunk)
+  - [Worktrees](#worktrees)
   - [Commands](#commands)
 - [Requirements](#requirements)
 - [Installation](#installation)
@@ -212,6 +213,17 @@ After a successful revert, the button changes to **Reverted**, and a notificatio
 
 ![Revert Hunk confirmation dialog](docs/images/revert-hunk.png)
 
+### Worktrees
+
+The **Worktrees** view, opened from its icon in the Activity Bar, lists every worktree of the open repositories: the main one first, then each linked worktree with its branch, folder, and whether its branch is merged. A worktree checks out another branch in a folder of its own, so you can work on a hotfix or review a pull request without stashing or switching branches.
+
+- **Create Worktree…** (the `+` button) checks out a new branch, an existing local branch, or a remote branch as a new local branch that tracks it. Branches already checked out in a worktree aren't offered.
+- New worktrees go in `gitBlameSolo.worktrees.folder` when it is set. Otherwise they go in the folder the repository already uses, `.worktrees/` inside it or `<repo>.worktrees/` next to it; with neither, you're asked, with the folder next to the repository recommended. For `.worktrees/`, the extension offers to add it to `.gitignore` if git doesn't ignore it yet. The proposed folder is named after the branch (`feature/login` → `feature-login`), and you can change it before the worktree is created.
+- Each worktree has buttons to open it in a new window or this one, reveal it in the file manager, copy its path, show its git log, and delete it.
+- Each linked worktree's branch shows whether it is **merged** into the default branch (`origin/HEAD`, or the main worktree's branch without a remote) or how many commits it is ahead, and whether its upstream branch is gone, as after a merged pull request's branch was deleted.
+- **Delete** works on one worktree, every selected one, or all of them with **Clean Up Worktrees…**. After you confirm (worktrees with uncommitted changes are marked, as those changes are lost), you pick which of their branches to delete too, with their merge status; pick none to keep them all. Deleting a branch that isn't merged asks again. If a picked branch tracks a branch on a remote, you're asked whether to delete it there too: **Delete from Remote** runs `git push <remote> --delete`, **Local Only** deletes it only here. The main worktree, the one open in this window, and locked worktrees are never deleted.
+- When the window has a linked worktree open rather than the repository's main folder, a **Worktree:** item in the status bar says so, and with several workspace folders the worktree's folder gets a **WT** badge in the Explorer.
+
 ### Commands
 
 Open the Command Palette (<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>) and type **Git Blame Solo**:
@@ -234,6 +246,9 @@ Open the Command Palette (<kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P
 | `Git Blame Solo: Show Line History` | Lists every commit that changed the current line. Picking one opens its change in the diff editor. |
 | `Git Blame Solo: Blame Previous Revision` | Compares the file as it was before the commit that last changed the current line with its current version, at that line. |
 | `Git Blame Solo: Open Commit on Remote` | Opens the commit that last changed the current line on GitHub, GitLab, Bitbucket, or Azure DevOps. |
+| `Git Blame Solo: Create Worktree…` | Creates a worktree for a new, existing, or remote branch. |
+| `Git Blame Solo: Clean Up Worktrees…` | Offers to delete every linked worktree of a repository, and the branches you pick. |
+| `Git Blame Solo: Refresh Worktrees` | Reads the worktrees again, for changes made outside VS Code. |
 | `Git Blame Solo: Refresh` | Re-reads everything cached from git: blame, repository roots, the remote URL, and your `user.email`. Rarely needed: changes to the repository's and your global git config are picked up automatically. |
 | `Git Blame Solo: Hide Author Email` / `Show Author Email` | Hides or shows the author's email in the hover (saved to your user settings). Only the one that applies is listed. |
 
@@ -290,6 +305,7 @@ Every setting below can also be changed from the Command Palette with **Git Blam
 | `gitBlameSolo.showUnpushed` | `false` | Mark commits that no remote branch contains yet as not pushed, in the hover and the git log. Repositories without remotes are not marked. |
 | `gitBlameSolo.highlightCommitLines` | `false` | Highlight the other lines of the file from the current line's commit, with marks in the scroll bar. |
 | `gitBlameSolo.editorTitleButtons` | `true` | Show the **File History** and **Toggle File Blame** buttons in the editor title bar. |
+| `gitBlameSolo.worktrees.folder` | `""` | Folder new worktrees go in, relative to the repository's main folder, such as `../myrepo.worktrees`. Empty uses the `.worktrees/` or `<repo>.worktrees/` folder the repository already has, and asks when it has neither. |
 
 For example, to show the short hash first with an absolute date:
 
@@ -331,6 +347,7 @@ src/
 ├── decorations/        # end-of-line annotation
 ├── hover/              # hover provider
 ├── webview/            # commit details and git log panels
+├── views/              # Worktrees view and the worktree status bar item
 └── util/               # date formatting, diff rendering, commit graph layout
 ```
 
@@ -395,7 +412,7 @@ npm run lint
 npm run test:unit
 ```
 
-If you're changing anything under `src/git/`, `src/cache/`, or `src/util/`, add or update a unit test alongside it. Those modules are plain Node/TypeScript with no `vscode` dependency, so they run instantly under `npm run test:unit`. Anything under `src/decorations/`, `src/hover/`, `src/webview/`, or `src/extension.ts` needs `vscode` and is covered by `npm test` (Extension Development Host) or manual testing via <kbd>F5</kbd>.
+If you're changing anything under `src/git/`, `src/cache/`, or `src/util/`, add or update a unit test alongside it. Those modules are plain Node/TypeScript with no `vscode` dependency, so they run instantly under `npm run test:unit`. Anything under `src/decorations/`, `src/hover/`, `src/views/`, `src/webview/`, or `src/extension.ts` needs `vscode` and is covered by `npm test` (Extension Development Host) or manual testing via <kbd>F5</kbd>.
 
 ## License
 
