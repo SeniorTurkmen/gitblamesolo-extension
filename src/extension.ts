@@ -8,6 +8,15 @@ import { changeSetting } from './commands/changeSetting';
 import { showAuthorHistory, showFileHistory, showHistory } from './commands/history';
 import { compareFileRevisions, compareRefs } from './commands/compare';
 import { showLineHistory } from './commands/lineHistory';
+import {
+  cleanUpWorktrees,
+  copyWorktreePath,
+  createWorktree,
+  deleteSelectedWorktrees,
+  openWorktree,
+  revealWorktree,
+  showWorktreeLog,
+} from './commands/worktree';
 import { activeRepoFile, compareWithWorkingFile, openFileAtRevision, pickRevision } from './commands/revision';
 import { getConfig, onConfigChanged } from './config';
 import { CurrentLineBlameDecorator } from './decorations/currentLineDecorator';
@@ -29,6 +38,8 @@ import { configureDates, formatDate, resolveDateLocale } from './util/dateFormat
 import { configureEmoji, emojify } from './util/emoji';
 import { detectSystemLocale } from './util/systemLocale';
 import { ChangePeek, ChangePeekBlock } from './peek/changePeek';
+import { WorktreeIndicator } from './views/worktreeIndicator';
+import { WorktreeNode, WorktreeTreeProvider } from './views/worktreeTree';
 import { CommitDetailsPanel } from './webview/commitDetailsPanel';
 
 /** How long typing must pause before an edited document is blamed again with its unsaved text. */
@@ -174,14 +185,46 @@ export function activate(context: vscode.ExtensionContext): void {
     redraw();
   }
 
+  const worktrees = new WorktreeTreeProvider();
+  const worktreeView = vscode.window.createTreeView<WorktreeNode>('gitBlameSolo.worktrees', {
+    treeDataProvider: worktrees,
+    canSelectMany: true,
+  });
+  context.subscriptions.push(
+    worktrees,
+    worktreeView,
+    new WorktreeIndicator(worktrees, worktreeView),
+    // Worktrees added or removed from a terminal change nothing the git extension reports for this window.
+    vscode.window.onDidChangeWindowState((state) => state.focused && worktrees.scheduleRefresh()),
+    vscode.workspace.onDidChangeWorkspaceFolders(() => worktrees.scheduleRefresh()),
+    vscode.commands.registerCommand('gitBlameSolo.createWorktree', (arg?: unknown) => createWorktree(worktrees, arg)),
+    vscode.commands.registerCommand('gitBlameSolo.refreshWorktrees', () => worktrees.refresh()),
+    vscode.commands.registerCommand('gitBlameSolo.cleanUpWorktrees', (arg?: unknown) => cleanUpWorktrees(worktrees, arg)),
+    vscode.commands.registerCommand('gitBlameSolo.deleteWorktree', (arg?: unknown, selected?: unknown) =>
+      deleteSelectedWorktrees(worktrees, arg, selected),
+    ),
+    vscode.commands.registerCommand('gitBlameSolo.openWorktreeInNewWindow', (arg?: unknown) => openWorktree(arg, true)),
+    vscode.commands.registerCommand('gitBlameSolo.openWorktree', (arg?: unknown) => openWorktree(arg, false)),
+    vscode.commands.registerCommand('gitBlameSolo.revealWorktree', revealWorktree),
+    vscode.commands.registerCommand('gitBlameSolo.copyWorktreePath', copyWorktreePath),
+    vscode.commands.registerCommand('gitBlameSolo.showWorktreeLog', showWorktreeLog),
+  );
+
   context.subscriptions.push(
     new RepositoryWatcher({
       onHeadChanged: () => {
         blameCache.clear();
         redraw();
+        worktrees.scheduleRefresh();
       },
-      onStateChanged: () => unpushedCache.clear(),
-      onRepositoriesChanged: resetCaches,
+      onStateChanged: () => {
+        unpushedCache.clear();
+        worktrees.scheduleRefresh();
+      },
+      onRepositoriesChanged: () => {
+        resetCaches();
+        worktrees.scheduleRefresh();
+      },
       onConfigChanged: () => {
         clearRemoteCaches();
         redraw();

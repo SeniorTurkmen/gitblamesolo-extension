@@ -29,6 +29,8 @@ export interface GitBlameSoloConfig {
   highlightCommitLines: boolean;
   renderEmoji: boolean;
   showUnpushed: boolean;
+  /** Folder for new worktrees, relative to the main worktree; empty to use the repository's existing layout. */
+  worktreesFolder: string;
 }
 
 export function getConfig(): GitBlameSoloConfig {
@@ -62,6 +64,7 @@ export function getConfig(): GitBlameSoloConfig {
     highlightCommitLines: cfg.get<boolean>('highlightCommitLines', false),
     renderEmoji: cfg.get<boolean>('renderEmoji', false),
     showUnpushed: cfg.get<boolean>('showUnpushed', false),
+    worktreesFolder: cfg.get<string>('worktrees.folder', ''),
   };
 }
 

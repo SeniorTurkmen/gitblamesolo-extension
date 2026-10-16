@@ -2,7 +2,7 @@
   "name": "gitblamesolo",
   "displayName": "Git Blame Solo",
   "description": "Shows who changed the current line, when, and with which commit, inline and on hover, plus a git log with a branch graph and file history.",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "publisher": "SeniorTurkmen",
   "license": "MIT",
   "private": true,
@@ -192,6 +192,11 @@
           },
           "default": [],
           "description": "Glob patterns for files that get no inline annotation, status bar entry, or hover, for example \"**/*.min.js\"."
+        },
+        "gitBlameSolo.worktrees.folder": {
+          "type": "string",
+          "default": "",
+          "description": "Folder new worktrees go in, relative to the repository's main folder, such as ../myrepo.worktrees or .worktrees. Empty uses the .worktrees/ or <repo>.worktrees/ folder the repository already has, and asks when it has neither."
         }
       }
     },
@@ -275,6 +280,48 @@
       {
         "command": "gitBlameSolo.hideAuthorEmail",
         "title": "Git Blame Solo: Hide Author Email"
+      },
+      {
+        "command": "gitBlameSolo.createWorktree",
+        "title": "Git Blame Solo: Create Worktree…",
+        "icon": "$(add)"
+      },
+      {
+        "command": "gitBlameSolo.refreshWorktrees",
+        "title": "Git Blame Solo: Refresh Worktrees",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "gitBlameSolo.cleanUpWorktrees",
+        "title": "Git Blame Solo: Clean Up Worktrees…",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "gitBlameSolo.deleteWorktree",
+        "title": "Git Blame Solo: Delete Worktree…",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "gitBlameSolo.openWorktreeInNewWindow",
+        "title": "Git Blame Solo: Open Worktree in New Window",
+        "icon": "$(empty-window)"
+      },
+      {
+        "command": "gitBlameSolo.openWorktree",
+        "title": "Git Blame Solo: Open Worktree in This Window",
+        "icon": "$(folder-opened)"
+      },
+      {
+        "command": "gitBlameSolo.revealWorktree",
+        "title": "Git Blame Solo: Reveal Worktree in File Manager"
+      },
+      {
+        "command": "gitBlameSolo.copyWorktreePath",
+        "title": "Git Blame Solo: Copy Worktree Path"
+      },
+      {
+        "command": "gitBlameSolo.showWorktreeLog",
+        "title": "Git Blame Solo: Show Worktree Git Log"
       }
     ],
     "menus": {
@@ -292,6 +339,30 @@
         {
           "command": "gitBlameSolo.hideAuthorEmail",
           "when": "config.gitBlameSolo.showAuthorEmail"
+        },
+        {
+          "command": "gitBlameSolo.deleteWorktree",
+          "when": "false"
+        },
+        {
+          "command": "gitBlameSolo.openWorktreeInNewWindow",
+          "when": "false"
+        },
+        {
+          "command": "gitBlameSolo.openWorktree",
+          "when": "false"
+        },
+        {
+          "command": "gitBlameSolo.revealWorktree",
+          "when": "false"
+        },
+        {
+          "command": "gitBlameSolo.copyWorktreePath",
+          "when": "false"
+        },
+        {
+          "command": "gitBlameSolo.showWorktreeLog",
+          "when": "false"
         }
       ],
       "editor/title": [
@@ -383,6 +454,75 @@
           "when": "scmProvider == git",
           "group": "9_gitBlameSolo"
         }
+      ],
+      "view/title": [
+        {
+          "command": "gitBlameSolo.createWorktree",
+          "when": "view == gitBlameSolo.worktrees",
+          "group": "navigation@1"
+        },
+        {
+          "command": "gitBlameSolo.refreshWorktrees",
+          "when": "view == gitBlameSolo.worktrees",
+          "group": "navigation@2"
+        },
+        {
+          "command": "gitBlameSolo.cleanUpWorktrees",
+          "when": "view == gitBlameSolo.worktrees",
+          "group": "navigation@3"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "gitBlameSolo.openWorktreeInNewWindow",
+          "when": "view == gitBlameSolo.worktrees && viewItem =~ /^worktree\\.(main|linked)$/",
+          "group": "inline@1"
+        },
+        {
+          "command": "gitBlameSolo.deleteWorktree",
+          "when": "view == gitBlameSolo.worktrees && viewItem == worktree.linked",
+          "group": "inline@3"
+        },
+        {
+          "command": "gitBlameSolo.openWorktreeInNewWindow",
+          "when": "view == gitBlameSolo.worktrees && viewItem =~ /^worktree\\.(main|linked)$/",
+          "group": "1_open@1"
+        },
+        {
+          "command": "gitBlameSolo.openWorktree",
+          "when": "view == gitBlameSolo.worktrees && viewItem =~ /^worktree\\.(main|linked)$/",
+          "group": "1_open@2"
+        },
+        {
+          "command": "gitBlameSolo.revealWorktree",
+          "when": "view == gitBlameSolo.worktrees && viewItem =~ /^worktree\\./",
+          "group": "2_path@1"
+        },
+        {
+          "command": "gitBlameSolo.copyWorktreePath",
+          "when": "view == gitBlameSolo.worktrees && viewItem =~ /^worktree\\./",
+          "group": "2_path@2"
+        },
+        {
+          "command": "gitBlameSolo.showWorktreeLog",
+          "when": "view == gitBlameSolo.worktrees && viewItem =~ /^worktree\\./",
+          "group": "3_log@1"
+        },
+        {
+          "command": "gitBlameSolo.createWorktree",
+          "when": "view == gitBlameSolo.worktrees && viewItem == worktreeRepository",
+          "group": "inline@1"
+        },
+        {
+          "command": "gitBlameSolo.cleanUpWorktrees",
+          "when": "view == gitBlameSolo.worktrees && viewItem == worktreeRepository",
+          "group": "inline@2"
+        },
+        {
+          "command": "gitBlameSolo.deleteWorktree",
+          "when": "view == gitBlameSolo.worktrees && viewItem == worktree.linked",
+          "group": "4_delete@1"
+        }
       ]
     },
     "colors": [
@@ -405,6 +545,31 @@
           "highContrast": "#3794ff",
           "highContrastLight": "#0066cc"
         }
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "gitBlameSolo",
+          "title": "Worktrees",
+          "icon": "resources/worktree.svg"
+        }
+      ]
+    },
+    "views": {
+      "gitBlameSolo": [
+        {
+          "id": "gitBlameSolo.worktrees",
+          "name": "Worktrees",
+          "icon": "resources/worktree.svg",
+          "contextualTitle": "Worktrees"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "gitBlameSolo.worktrees",
+        "contents": "No worktrees in the open repositories. A worktree checks out another branch in a folder of its own, so you can work on it without stashing or switching.\n[Create Worktree](command:gitBlameSolo.createWorktree)"
       }
     ]
   },
